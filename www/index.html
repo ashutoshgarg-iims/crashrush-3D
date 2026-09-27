@@ -44,6 +44,19 @@
   .mb-track{height:8px; border-radius:10px; background:var(--card); border:1px solid var(--line); overflow:hidden;}
   .mb-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--magenta),var(--cyan)); transition:width 0.3s ease;}
   .rc-damage{color:var(--orange); font-weight:800; font-size:13px; margin-top:4px;}
+  .rc-score{color:var(--cyan); font-weight:800; font-size:13px; margin-top:6px;}
+  .rc-zones{margin-top:8px; text-align:left; font-size:11px; color:var(--muted); background:var(--card); border-radius:8px; padding:8px 10px;}
+  .rc-caption{margin-top:8px; font-size:12px; font-weight:700; color:var(--orange); font-style:italic;}
+  .zone-row{display:flex; justify-content:space-between; padding:2px 0;}
+  .hud .topbar, .hud .milestone-bar, .hud .stats-strip{transition:opacity 0.15s ease;}
+  .hud.impact-hide .topbar, .hud.impact-hide .milestone-bar, .hud.impact-hide .stats-strip{opacity:0; pointer-events:none;}
+  .rage-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  .rage-choice{
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 8px;
+    text-align:center; cursor:pointer; font-weight:700; font-size:13px;
+  }
+  .rage-choice:active{background:var(--bg);}
+  .rage-choice .rg-emoji{font-size:28px; display:block; margin-bottom:6px;}
   .avatar-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;}
   .avatar-choice{font-size:26px; background:var(--card); border:2px solid var(--line); border-radius:10px; padding:8px 0; cursor:pointer; text-align:center;}
   .avatar-choice.selected{border-color:var(--cyan); background:rgba(41,229,255,0.12);}
@@ -203,6 +216,7 @@
     <div class="top-actions">
       <div class="money" id="moneyDisplay">$0</div>
       <button class="icon-btn" id="garageBtn" title="Garage">🚗</button>
+      <button class="icon-btn" id="officeRageBtn" title="Office Rage mode">😤</button>
       <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
@@ -230,6 +244,9 @@
   <div class="rc-title">💥 Crashed!</div>
   <div class="rc-speed" id="rcSpeed">Impact speed: 0 km/h</div>
   <div class="rc-damage" id="rcDamage">Damage: 0%</div>
+  <div class="rc-score" id="rcScore">Impact Score 0</div>
+  <div class="rc-zones" id="rcZones"></div>
+  <div class="rc-caption" id="rcCaption" style="display:none;"></div>
   <div class="rc-money" id="rcMoney">+$0</div>
   <button class="rc-btn" id="rcBtn">Drive Again</button>
 </div>
@@ -257,6 +274,13 @@
     <div class="settings-row"><span>Test vibration</span><button class="icon-btn" id="testVibrateBtn">👆</button></div>
     <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="officeRageModal" style="display:none;">
+  <div class="modal-card">
+    <h2>What's pissing you off today? <span class="close-x" id="officeRageCloseBtn">✕</span></h2>
+    <div class="rage-grid" id="rageGrid"></div>
   </div>
 </div>
 
@@ -293,6 +317,19 @@
   ];
   function getCar(id){ for(let i=0;i<CARS.length;i++){ if(CARS[i].id === id) return CARS[i]; } return CARS[0]; }
 
+  // Office Rage mode: reskins the wall target with a workday theme + flavor captions.
+  // Same underlying crash mechanic, different emotional framing -- "what's pissing you off today?"
+  const RAGE_THEMES = [
+    {id:"default",      emoji:"\uD83E\uDDF1", label:"Concrete Wall", captions:["Clean, satisfying, classic."]},
+    {id:"emails",        emoji:"\uD83D\uDE24", label:"Emails",        captions:["THAT MEETING COULD HAVE BEEN AN EMAIL.","INBOX: ZERO (finally)."]},
+    {id:"meetings",      emoji:"\uD83D\uDE11", label:"Meetings",      captions:["THIS MEETING COULD HAVE BEEN A CRASH.","DECLINED."]},
+    {id:"deadlines",     emoji:"\uD83E\uDD2C", label:"Deadlines",     captions:["DEADLINE: DESTROYED.","SHIPPED IT."]},
+    {id:"spreadsheets",  emoji:"\uD83D\uDE35", label:"Spreadsheets",  captions:["#REF! ERROR: WALL NOT FOUND.","PIVOT TABLE: OBLITERATED."]},
+    {id:"monday",        emoji:"\u2615",        label:"Monday",        captions:["MONDAY: 0. YOU: 1.","COFFEE NOT NEEDED ANYMORE."]},
+    {id:"everything",    emoji:"\uD83D\uDC80", label:"Everything",    captions:["YOUR MANAGER WILL NEVER KNOW.","EVERYTHING, HANDLED."]},
+  ];
+  function getRageTheme(id){ for(let i=0;i<RAGE_THEMES.length;i++){ if(RAGE_THEMES[i].id===id) return RAGE_THEMES[i]; } return RAGE_THEMES[0]; }
+
   const AVATARS = ["🏎️", "🚀", "🔥", "💀", "⚡", "🤖", "😈", "🏁"];
 
   const MILESTONES = [
@@ -322,7 +359,7 @@
   let state = {
     money: 0, ownedCarIds: ["beater"], activeCarId: "beater",
     bestSpeed: 0, totalCrashes: 0, totalEarned: 0, milestoneIndex: 0,
-    carStats: {}, odometerKm: 0,
+    carStats: {}, odometerKm: 0, bestImpactScore: 0, rageTheme: "default",
     muted: false, hapticsEnabled: true,
   };
   function getCarStats(carId){
@@ -567,26 +604,62 @@
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.15);
     o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.15);
   }
+  // Layered impact sequence, not one burst: creak (structural stress) -> crack
+  // (glass) -> THUD (main hit) -> crunch (metal folding) -> settle (debris rattle)
+  // -> silence -> tiny settling ticks. The silence gap after is deliberate --
+  // that's the ASMR payoff moment, not a mixing gap.
   function playCrashSound(intensity){
-    noiseBurst(0.5, 1800, 90, 0.5 + intensity*0.3);
-    setTimeout(() => noiseBurst(0.35, 500, 60, 0.4 + intensity*0.2), 60);
     if(state.muted) return;
     const ctx = ensureAudio(); if(!ctx) return;
-    const o = ctx.createOscillator(); const g = ctx.createGain();
-    o.type = "triangle"; o.frequency.setValueAtTime(220, ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(60, ctx.currentTime+0.3);
-    g.gain.setValueAtTime(0.25, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.35);
-    o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.4);
-    noiseBurst(0.18, 4200, 2000, 0.18 + intensity*0.12);
-    [3400,4200,2800].forEach((f,i) => {
-      const so = ctx.createOscillator(); const sg = ctx.createGain();
-      so.type = "sine"; so.frequency.value = f;
-      const t0 = ctx.currentTime + i*0.03;
-      sg.gain.setValueAtTime(0.06, t0);
-      sg.gain.exponentialRampToValueAtTime(0.001, t0+0.15);
-      so.connect(sg).connect(ctx.destination); so.start(t0); so.stop(t0+0.16);
-    });
+
+    // 1. creak -- a brief rising groan right at first contact
+    const creak = ctx.createOscillator(); const creakG = ctx.createGain();
+    creak.type = "sawtooth"; creak.frequency.setValueAtTime(140, ctx.currentTime);
+    creak.frequency.linearRampToValueAtTime(210, ctx.currentTime+0.09);
+    creakG.gain.setValueAtTime(0.001, ctx.currentTime);
+    creakG.gain.linearRampToValueAtTime(0.09+intensity*0.05, ctx.currentTime+0.04);
+    creakG.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.11);
+    creak.connect(creakG).connect(ctx.destination); creak.start(); creak.stop(ctx.currentTime+0.12);
+
+    // 2. crack -- glass, slightly after the creak
+    setTimeout(() => {
+      noiseBurst(0.16, 4200, 1900, 0.16 + intensity*0.1);
+      const ctx2 = ensureAudio(); if(!ctx2 || state.muted) return;
+      [3600,4400,2900].forEach((f,i) => {
+        const so = ctx2.createOscillator(); const sg = ctx2.createGain();
+        so.type = "sine"; so.frequency.value = f;
+        const t0 = ctx2.currentTime + i*0.025;
+        sg.gain.setValueAtTime(0.05, t0);
+        sg.gain.exponentialRampToValueAtTime(0.001, t0+0.13);
+        so.connect(sg).connect(ctx2.destination); so.start(t0); so.stop(t0+0.14);
+      });
+    }, 60);
+
+    // 3. THUD -- the main impact, the loudest single moment
+    setTimeout(() => {
+      noiseBurst(0.4, 1900, 85, 0.55 + intensity*0.32);
+      const ctx3 = ensureAudio(); if(!ctx3 || state.muted) return;
+      const o = ctx3.createOscillator(); const g = ctx3.createGain();
+      o.type = "triangle"; o.frequency.setValueAtTime(150, ctx3.currentTime);
+      o.frequency.exponentialRampToValueAtTime(45, ctx3.currentTime+0.28);
+      g.gain.setValueAtTime(0.3+intensity*0.15, ctx3.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx3.currentTime+0.32);
+      o.connect(g).connect(ctx3.destination); o.start(); o.stop(ctx3.currentTime+0.35);
+    }, 130);
+
+    // 4. crunch -- metal folding, a beat after the thud
+    setTimeout(() => {
+      noiseBurst(0.32, 700, 55, 0.35 + intensity*0.2);
+    }, 240);
+
+    // 5. settle -- a few irregular small rattles as debris drops
+    for(let i=0;i<3;i++){
+      setTimeout(() => { noiseBurst(0.08, 900+Math.random()*400, 200, 0.08*intensity); }, 420 + i*(110+Math.random()*80));
+    }
+    // then deliberate silence -- no sound scheduled between ~700ms and ~1400ms --
+    // followed by two tiny final settling ticks
+    setTimeout(() => { noiseBurst(0.05, 500, 150, 0.03); }, 1450);
+    setTimeout(() => { noiseBurst(0.05, 400, 120, 0.02); }, 1650);
   }
 
   // ---------- three.js scene ----------
@@ -621,7 +694,7 @@
   }
   // Reinforced impact-test wall: padded panel look with hazard corner triangles
   // and a center alignment cross, like a real crash barrier.
-  function makeWallTexture(){
+  function makeWallTexture(theme){
     const c = document.createElement("canvas"); c.width = 512; c.height = 256;
     const ctx = c.getContext("2d");
     ctx.fillStyle = "#8b9199"; ctx.fillRect(0,0,512,256);
@@ -630,10 +703,20 @@
     ctx.fillStyle = "#f4c430";
     ctx.fillRect(0,0,512,16); ctx.fillRect(0,240,512,16);
     for(let i=0;i<16;i++){ ctx.fillStyle = (i%2===0) ? "#1c1f22" : "#f4c430"; ctx.fillRect(i*32,0,32,16); ctx.fillRect(i*32,240,32,16); }
-    ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(236,108); ctx.lineTo(276,148); ctx.moveTo(276,108); ctx.lineTo(236,148); ctx.stroke();
-    ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 3;
-    ctx.strokeRect(206,78,100,100);
+    if(theme && theme.id !== "default"){
+      ctx.fillStyle = "rgba(20,20,24,0.6)";
+      ctx.fillRect(150,88,212,86);
+      ctx.fillStyle = "#f3f0e8"; ctx.textAlign = "center";
+      ctx.font = "44px sans-serif";
+      ctx.fillText(theme.emoji, 256, 138);
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillText(theme.label.toUpperCase(), 256, 162);
+    } else {
+      ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(236,108); ctx.lineTo(276,148); ctx.moveTo(276,108); ctx.lineTo(236,148); ctx.stroke();
+      ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 3;
+      ctx.strokeRect(206,78,100,100);
+    }
     return new THREE.CanvasTexture(c);
   }
 
@@ -787,7 +870,7 @@
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    const wallMat = new THREE.MeshStandardMaterial({map: makeWallTexture(), roughness:0.8, metalness:0.15});
+    const wallMat = new THREE.MeshStandardMaterial({map: makeWallTexture(getRageTheme(state.rageTheme)), roughness:0.8, metalness:0.15});
     wallMesh = new THREE.Mesh(new THREE.BoxGeometry(11, 6, 1.2), wallMat);
     wallMesh.position.set(0, 3, WALL_FAR_Z);
     wallMesh.castShadow = true; wallMesh.receiveShadow = true;
@@ -1071,11 +1154,36 @@
     document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
   }
 
+  // Progressive damage tiers -- visibly distinct stages instead of a flat 50% floor.
+  // Anchor points are speed -> damage%; smoothly interpolated between them so it
+  // never feels steppy, but each named stage is genuinely reachable and distinct.
+  const DAMAGE_TIERS = [
+    {speed:0,   dmg:0,   label:"Pristine"},
+    {speed:60,  dmg:10,  label:"Minor Dent"},
+    {speed:100, dmg:25,  label:"Bumper Damage"},
+    {speed:150, dmg:40,  label:"Hood Deformation"},
+    {speed:200, dmg:55,  label:"Windshield Cracked"},
+    {speed:255, dmg:70,  label:"Major Body Collapse"},
+    {speed:305, dmg:85,  label:"Wheel/Suspension Failure"},
+    {speed:355, dmg:95,  label:"Severe Crumple"},
+    {speed:410, dmg:100, label:"TOTALLED"},
+  ];
   function computeDamagePercent(impactSpeed){
-    let dmg;
-    if(impactSpeed <= 200){ dmg = 50; }
-    else { dmg = 50 + ((impactSpeed-200)/40) * 3; }
-    return Math.max(0, Math.min(100, dmg));
+    if(impactSpeed <= DAMAGE_TIERS[0].speed) return DAMAGE_TIERS[0].dmg;
+    for(let i=1;i<DAMAGE_TIERS.length;i++){
+      if(impactSpeed <= DAMAGE_TIERS[i].speed){
+        const a = DAMAGE_TIERS[i-1], b = DAMAGE_TIERS[i];
+        const t = (impactSpeed - a.speed) / (b.speed - a.speed);
+        return a.dmg + (b.dmg - a.dmg) * t;
+      }
+    }
+    return 100;
+  }
+  function damageTierLabel(dmg){
+    for(let i=DAMAGE_TIERS.length-1;i>=0;i--){
+      if(dmg >= DAMAGE_TIERS[i].dmg) return DAMAGE_TIERS[i].label;
+    }
+    return DAMAGE_TIERS[0].label;
   }
 
   function checkMilestones(){
@@ -1147,19 +1255,35 @@
       if(t < 1){
         requestAnimationFrame(stepReplay);
       } else {
-        playCrashSound(ratio * 0.75);
-        triggerShake(0.15 + ratio*0.3);
-        flashScreen();
-        deformCar(ratio);
-        spawnDebris(ratio, carFrontZ(), 0.6);
+        // impact freeze -- a brief hard stop right at contact before the effects
+        // cascade, so the hit registers as a real moment rather than a blur
+        setTimeout(() => {
+          playCrashSound(ratio * 0.75);
+          vibrate(ratio > 0.7 ? [45,25,45] : [30,20,40]);
+          triggerShake(0.15 + ratio*0.3);
+          flashScreen();
+          deformCar(ratio);
+          spawnDebris(ratio, carFrontZ(), 0.6);
+        }, 110);
         setTimeout(() => {
           inReplay = false;
           restoreChaseCamera();
           onComplete();
-        }, 1500);
+        }, 1600);
       }
     }
     requestAnimationFrame(stepReplay);
+  }
+
+  function renderDamageZones(dmg){
+    const el = document.getElementById("rcZones"); if(!el) return;
+    const zones = [
+      ["Front", Math.min(100, dmg*1.15)],
+      ["Glass", Math.min(100, dmg*0.9)],
+      ["Chassis", Math.min(100, dmg*0.75)],
+      ["Wheels", Math.min(100, dmg*0.45)],
+    ];
+    el.innerHTML = zones.map((z) => '<div class="zone-row"><span>' + z[0] + '</span><span>' + Math.round(z[1]) + '%</span></div>').join("");
   }
 
   function triggerCrash(){
@@ -1171,12 +1295,20 @@
     const ratio = damagePercent / 100;
 
     stopEngineAudio();
-    playCrashSound(ratio);
-    vibrate(ratio > 0.7 ? [40,30,40,30,80] : [30,20,50]);
-    triggerShake(0.25 + ratio*0.5);
-    flashScreen();
-    deformCar(ratio);
-    spawnDebris(ratio, carFrontZ(), 0.6);
+    document.querySelector(".hud").classList.add("impact-hide");
+    vibrate(4); // tiny sharp tick at the freeze moment
+
+    // impact freeze -- a brief hard stop before anything cascades, so the hit
+    // registers as a real moment of tension rather than one continuous blur
+    setTimeout(() => {
+      playCrashSound(ratio);
+      vibrate(ratio > 0.7 ? [50,25,50,25,90] : [35,20,55]);
+      triggerShake(0.25 + ratio*0.5);
+      flashScreen();
+      deformCar(ratio);
+      spawnDebris(ratio, carFrontZ(), 0.6);
+      [420,530,610].forEach((d) => setTimeout(() => vibrate(8), d)); // tiny settling pulses matching the audio
+    }, 120);
 
     const reward = computeReward(impactSpeed, car);
     state.money += reward; state.totalEarned += reward; state.totalCrashes += 1;
@@ -1187,18 +1319,33 @@
     if(impactSpeed > cs.bestSpeed) cs.bestSpeed = impactSpeed;
     if(damagePercent > cs.bestDamage) cs.bestDamage = damagePercent;
 
+    const impactScore = Math.round(impactSpeed*3 + damagePercent*8);
+    const isRecord = impactScore > state.bestImpactScore;
+    if(isRecord) state.bestImpactScore = impactScore;
+
     checkMilestones();
     save(); renderMoney(); renderStats(); renderMilestoneBar();
 
     document.getElementById("rcSpeed").textContent = "Impact speed: " + Math.round(impactSpeed) + " km/h";
-    document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "%";
+    document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "% \u2014 " + damageTierLabel(damagePercent);
     document.getElementById("rcMoney").textContent = "+" + fmt(reward);
+    document.getElementById("rcScore").textContent = "Impact Score " + impactScore.toLocaleString() + (isRecord ? "  🏆 NEW RECORD" : "");
+    renderDamageZones(damagePercent);
+    const rageTheme = getRageTheme(state.rageTheme);
+    const captionEl = document.getElementById("rcCaption");
+    if(rageTheme.id !== "default"){
+      captionEl.textContent = rageTheme.captions[Math.floor(Math.random()*rageTheme.captions.length)];
+      captionEl.style.display = "block";
+    } else {
+      captionEl.style.display = "none";
+    }
 
     setTimeout(() => {
       playCrashReplay(impactSpeed, damagePercent, () => {
+        document.querySelector(".hud").classList.remove("impact-hide");
         document.getElementById("resultCard").classList.add("show");
       });
-    }, 500);
+    }, 640);
   }
 
   function resetRun(){
@@ -1315,6 +1462,36 @@
     if(!window.confirm("Reset all progress? This cannot be undone.")) return;
     try{ localStorage.removeItem("crashrush-save-v1"); }catch(e){}
     location.reload();
+  });
+  function renderRageGrid(){
+    const el = document.getElementById("rageGrid"); el.innerHTML = "";
+    RAGE_THEMES.forEach((t) => {
+      const d = document.createElement("div");
+      d.className = "rage-choice";
+      d.innerHTML = '<span class="rg-emoji">' + t.emoji + '</span>' + t.label;
+      d.onclick = () => selectRageTheme(t);
+      el.appendChild(d);
+    });
+  }
+  function selectRageTheme(theme){
+    state.rageTheme = theme.id;
+    if(wallMesh){
+      wallMesh.material.map = makeWallTexture(theme);
+      wallMesh.material.needsUpdate = true;
+    }
+    document.getElementById("officeRageModal").style.display = "none";
+    uiBlocked = false;
+    showToast(theme.emoji + " Now crashing: " + theme.label, "Same wall, different feelings.");
+    save();
+  }
+  document.getElementById("officeRageBtn").addEventListener("click", () => {
+    renderRageGrid();
+    document.getElementById("officeRageModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("officeRageCloseBtn").addEventListener("click", () => {
+    document.getElementById("officeRageModal").style.display = "none";
+    uiBlocked = false;
   });
   document.getElementById("hallOfFameBtn").addEventListener("click", () => {
     renderHallOfFame();
