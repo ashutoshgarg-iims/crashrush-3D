@@ -45,6 +45,16 @@
   .mb-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--magenta),var(--cyan)); transition:width 0.3s ease;}
   .rc-damage{color:var(--orange); font-weight:800; font-size:13px; margin-top:4px;}
   .rc-score{color:var(--cyan); font-weight:800; font-size:13px; margin-top:6px;}
+  .rc-power{color:var(--magenta); font-weight:700; font-size:12px; margin-top:4px;}
+  .rarity-badge{
+    font-size:9px; font-weight:800; text-transform:uppercase; padding:2px 7px; border-radius:10px;
+    display:inline-block; vertical-align:middle; margin-left:4px; letter-spacing:0.5px;
+  }
+  .rarity-common{background:rgba(154,162,171,0.2); color:var(--muted); border:1px solid var(--muted);}
+  .rarity-rare{background:rgba(41,229,255,0.15); color:var(--cyan); border:1px solid var(--cyan);}
+  .rarity-epic{background:rgba(255,46,154,0.15); color:var(--magenta); border:1px solid var(--magenta);}
+  .rarity-legendary{background:rgba(244,196,48,0.18); color:#f4c430; border:1px solid #f4c430;}
+  .rarity-mythic{background:rgba(255,138,61,0.18); color:var(--orange); border:1px solid var(--orange);}
   .rc-zones{margin-top:8px; text-align:left; font-size:11px; color:var(--muted); background:var(--card); border-radius:8px; padding:8px 10px;}
   .rc-caption{margin-top:8px; font-size:12px; font-weight:700; color:var(--orange); font-style:italic;}
   .zone-row{display:flex; justify-content:space-between; padding:2px 0;}
@@ -285,6 +295,7 @@
       <button class="icon-btn" id="officeRageBtn" title="Office Rage mode">😤</button>
       <button class="icon-btn" id="sessionBtn" title="Session mode">⏱️</button>
       <button class="icon-btn" id="dailyChallengeBtn" title="Daily challenge">📅</button>
+      <button class="icon-btn" id="materialBtn" title="Material packs">🧱</button>
       <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
@@ -318,6 +329,7 @@
   <div class="rc-speed" id="rcSpeed">Impact speed: 0 km/h</div>
   <div class="rc-damage" id="rcDamage">Damage: 0%</div>
   <div class="rc-score" id="rcScore">Impact Score 0</div>
+  <div class="rc-power" id="rcPower">Impact Power 0 kN</div>
   <div class="rc-zones" id="rcZones"></div>
   <div class="rc-caption" id="rcCaption" style="display:none;"></div>
   <div class="rc-money" id="rcMoney">+$0</div>
@@ -337,6 +349,8 @@
     <div id="hofList"></div>
     <div class="hof-section-label">Achievements</div>
     <div id="achievementGrid"></div>
+    <div class="hof-section-label">Material Encyclopedia</div>
+    <div id="materialEncyclopedia"></div>
     <div class="hof-section-label">Recent Crashes</div>
     <div class="history-header"><span>Car</span><span>Speed</span><span>Damage</span><span>Reward</span></div>
     <div id="crashHistoryList"></div>
@@ -348,6 +362,16 @@
     <h2>Today's Challenge <span class="close-x" id="dailyChallengeCloseBtn">✕</span></h2>
     <div id="dailyChallengeBody"></div>
     <button class="rc-btn" id="dailyChallengeClaimBtn" style="margin-top:14px;" disabled>Claim</button>
+    <div class="hof-section-label">This Week's Challenge</div>
+    <div id="weeklyChallengeBody"></div>
+    <button class="rc-btn" id="weeklyChallengeClaimBtn" style="margin-top:14px;" disabled>Claim</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="materialModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Material Pack <span class="close-x" id="materialCloseBtn">✕</span></h2>
+    <div class="rage-grid" id="materialGrid"></div>
   </div>
 </div>
 
@@ -428,12 +452,14 @@
   // enginePitch scales the whole engine register (lower = deeper/chestier, higher = sportier
   // whine). engineGrit adds extra distortion/roughness for ragged, unrefined cars.
   const CARS = [
-    {id:"beater", name:"Rusty Beater",      cost:0,      maxSpeed:110, rewardMult:1.0, color:0x9c5a3c, metalness:0.25, roughness:0.75, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:0.8,  engineGrit:1.6, personality:"Held together with hope and duct tape. Every crash sounds like it should be its last."},
-    {id:"sedan",  name:"Sport Sedan",       cost:800,    maxSpeed:150, rewardMult:1.3, color:0x2b6fd1, metalness:0.55, roughness:0.35, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:1.0,  engineGrit:0.9, personality:"Sensible, reliable, and about to make a very irresponsible decision."},
-    {id:"muscle", name:"Muscle Coupe",      cost:4000,   maxSpeed:190, rewardMult:1.7, color:0x181a1e, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0xe8e8e8, underglow:null,     calipers:0xff3b3b, scoop:true,  enginePitch:0.72, engineGrit:1.3, personality:"Heavy, loud, and violent on impact. Deep crunch guaranteed."},
-    {id:"tuner",  name:"Street Tuner",      cost:15000,  maxSpeed:220, rewardMult:2.1, color:0xd1272b, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0x151515, underglow:0x29e5ff, calipers:0xffd23f, scoop:false, enginePitch:1.35, engineGrit:1.1, personality:"Underglow, whine, attitude. Built to be seen -- briefly."},
-    {id:"super",  name:"Apex Supercar",     cost:70000,  maxSpeed:260, rewardMult:2.7, color:0x2fae5c, metalness:0.9,  roughness:0.1,  spoiler:true,  stripe:0x0c2016, underglow:0x39ff8f, calipers:0xffd23f, scoop:true,  enginePitch:1.6,  engineGrit:0.8, personality:"Blindingly fast, beautifully engineered, tragically disposable."},
-    {id:"hyper",  name:"Prestige Hypercar", cost:350000, maxSpeed:310, rewardMult:3.5, color:0xd4af37, metalness:0.95, roughness:0.06, spoiler:true,  stripe:0x1a1a1a, underglow:0xff2e9a, calipers:0xff2e9a, scoop:true,  enginePitch:1.45, engineGrit:0.55, personality:"A small fortune on wheels. Genuinely a shame, honestly."},
+    {id:"beater", name:"Rusty Beater",      cost:0,      maxSpeed:110, rewardMult:1.0, color:0x9c5a3c, metalness:0.25, roughness:0.75, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:0.8,  engineGrit:1.6, personality:"Held together with hope and duct tape. Every crash sounds like it should be its last.", mass:1400, rarity:"Common"},
+    {id:"sedan",  name:"Sport Sedan",       cost:800,    maxSpeed:150, rewardMult:1.3, color:0x2b6fd1, metalness:0.55, roughness:0.35, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:1.0,  engineGrit:0.9, personality:"Sensible, reliable, and about to make a very irresponsible decision.", mass:1550, rarity:"Common"},
+    {id:"muscle", name:"Muscle Coupe",      cost:4000,   maxSpeed:190, rewardMult:1.7, color:0x181a1e, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0xe8e8e8, underglow:null,     calipers:0xff3b3b, scoop:true,  enginePitch:0.72, engineGrit:1.3, personality:"Heavy, loud, and violent on impact. Deep crunch guaranteed.", mass:1850, rarity:"Rare"},
+    {id:"tuner",  name:"Street Tuner",      cost:15000,  maxSpeed:220, rewardMult:2.1, color:0xd1272b, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0x151515, underglow:0x29e5ff, calipers:0xffd23f, scoop:false, enginePitch:1.35, engineGrit:1.1, personality:"Underglow, whine, attitude. Built to be seen -- briefly.", mass:1500, rarity:"Rare"},
+    {id:"super",  name:"Apex Supercar",     cost:70000,  maxSpeed:260, rewardMult:2.7, color:0x2fae5c, metalness:0.9,  roughness:0.1,  spoiler:true,  stripe:0x0c2016, underglow:0x39ff8f, calipers:0xffd23f, scoop:true,  enginePitch:1.6,  engineGrit:0.8, personality:"Blindingly fast, beautifully engineered, tragically disposable.", mass:1450, rarity:"Epic"},
+    {id:"hyper",  name:"Prestige Hypercar", cost:350000, maxSpeed:310, rewardMult:3.5, color:0xd4af37, metalness:0.95, roughness:0.06, spoiler:true,  stripe:0x1a1a1a, underglow:0xff2e9a, calipers:0xff2e9a, scoop:true,  enginePitch:1.45, engineGrit:0.55, personality:"A small fortune on wheels. Genuinely a shame, honestly.", mass:1700, rarity:"Legendary"},
+    {id:"printer", name:"The Printer",      cost:0, maxSpeed:65,  rewardMult:0.6, color:0xe8e8e8, metalness:0.2, roughness:0.6, spoiler:false, stripe:null, underglow:null, calipers:null, scoop:false, enginePitch:1.1, engineGrit:2.0, personality:"It jammed one too many times right before a deadline. Today, it pays.", mass:180, rarity:"Mythic", secret:true, unlockDesc:"Crash 10 times in Office Rage mode", unlockCheck:(s) => (s.officeRageCrashCount||0) >= 10},
+    {id:"coffee",  name:"Coffee Machine",   cost:0, maxSpeed:50,  rewardMult:0.5, color:0x3a2417, metalness:0.4, roughness:0.5, spoiler:false, stripe:null, underglow:null, calipers:null, scoop:false, enginePitch:1.3, engineGrit:2.2, personality:"Betrayed you one final time this morning. This is personal.", mass:90, rarity:"Mythic", secret:true, unlockDesc:"Unlock the Office Warrior achievement", unlockCheck:(s) => (s.unlockedAchievements||[]).indexOf("office_warrior") !== -1},
   ];
   function getCar(id){ for(let i=0;i<CARS.length;i++){ if(CARS[i].id === id) return CARS[i]; } return CARS[0]; }
 
@@ -504,6 +530,75 @@
     renderMoney(); renderDailyChallenge(); save();
   }
 
+  // Weekly challenge -- same pattern as daily, bigger scope, keyed by ISO-ish week string
+  function weekStr(){
+    const d = new Date();
+    const onejan = new Date(d.getFullYear(), 0, 1);
+    const week = Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+    return d.getFullYear() + "-W" + week;
+  }
+  const WEEKLY_CHALLENGE_TEMPLATES = [
+    {make:() => { const t = 15+Math.floor(Math.random()*20); return {type:"crashes", target:t, reward:t*900, desc:"Crash " + t + " times this week"}; }},
+    {make:() => { const t = 260+Math.floor(Math.random()*140); return {type:"speed", target:t, reward:Math.round(t*220), desc:"Hit " + t + " km/h this week"}; }},
+  ];
+  function generateWeeklyChallenge(){
+    const tpl = WEEKLY_CHALLENGE_TEMPLATES[Math.floor(Math.random()*WEEKLY_CHALLENGE_TEMPLATES.length)];
+    const c = tpl.make();
+    c.week = weekStr(); c.progress = 0; c.claimed = false;
+    return c;
+  }
+  function ensureWeeklyChallenge(){
+    if(!state.weeklyChallenge || state.weeklyChallenge.week !== weekStr()){
+      state.weeklyChallenge = generateWeeklyChallenge();
+    }
+  }
+  function updateWeeklyChallengeProgress(impactSpeed){
+    ensureWeeklyChallenge();
+    const c = state.weeklyChallenge;
+    if(c.claimed) return;
+    if(c.type === "speed") c.progress = Math.max(c.progress, impactSpeed);
+    else if(c.type === "crashes") c.progress += 1;
+  }
+  function renderWeeklyChallenge(){
+    ensureWeeklyChallenge();
+    const c = state.weeklyChallenge;
+    const el = document.getElementById("weeklyChallengeBody"); if(!el) return;
+    const pct = Math.min(100, (c.progress/c.target)*100);
+    const ready = c.progress >= c.target && !c.claimed;
+    el.innerHTML =
+      '<div class="dc-desc">' + c.desc + '</div>' +
+      '<div class="quest-progress"><div class="quest-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="dc-sub">' + Math.min(Math.round(c.progress), c.target) + ' / ' + c.target + ' &middot; reward ' + fmt(c.reward) + '</div>';
+    const btn = document.getElementById("weeklyChallengeClaimBtn");
+    btn.disabled = !ready;
+    btn.textContent = c.claimed ? "Claimed" : "Claim";
+  }
+  function claimWeeklyChallenge(){
+    const c = state.weeklyChallenge;
+    if(!c || c.claimed || c.progress < c.target) return;
+    c.claimed = true;
+    state.money += c.reward; state.totalEarned += c.reward;
+    playCoinSound();
+    showToast("\uD83D\uDCC6 Weekly challenge complete!", "+" + fmt(c.reward));
+    renderMoney(); renderWeeklyChallenge(); save();
+  }
+
+  // Friday Crash -- a real date check, not a fake toggle. Bonus rewards, once per Friday.
+  function isFridayToday(){ return new Date().getDay() === 5; }
+
+  // Material Packs: same reskin-the-wall trick as Office Rage themes, but each material
+  // also forces the matching crash sound profile so the sensory payoff is automatic --
+  // pick Glass, get the shatter; no separate profile toggle needed.
+  const MATERIAL_PACKS = [
+    {id:"concrete", emoji:"\uD83E\uDDF1", label:"Concrete",     soundProfile:"metal", wallBase:"#8b9199", wallAccent:"#f4c430"},
+    {id:"glass",    emoji:"\uD83E\uDE9F", label:"Glass Wall",   soundProfile:"glass", wallBase:"#bcd9e6", wallAccent:"#e8f4ff"},
+    {id:"steel",    emoji:"\uD83D\uDD29", label:"Steel Plate",  soundProfile:"metal", wallBase:"#5d636b", wallAccent:"#c9d3dc"},
+    {id:"wood",     emoji:"\uD83E\uDEB5", label:"Wood Crates",  soundProfile:"soft",  wallBase:"#8a5a34", wallAccent:"#c98a4b"},
+    {id:"ice",      emoji:"\uD83E\uDDCA", label:"Ice Wall",     soundProfile:"glass", wallBase:"#bfe8f5", wallAccent:"#ffffff"},
+    {id:"foam",     emoji:"\uD83E\uDEE7", label:"Foam Blocks",  soundProfile:"soft",  wallBase:"#e8a0c8", wallAccent:"#ffd0e8"},
+  ];
+  function getMaterialPack(id){ for(let i=0;i<MATERIAL_PACKS.length;i++){ if(MATERIAL_PACKS[i].id===id) return MATERIAL_PACKS[i]; } return MATERIAL_PACKS[0]; }
+
   // Crash achievements -- fantasy-tied, not generic. Each check reads directly
   // from tracked state, no separate bookkeeping needed beyond what crashes already log.
   const ACHIEVEMENTS = [
@@ -513,6 +608,14 @@
     {id:"glass_master",  emoji:"🪟",       label:"Glass Master",  desc:"50 crashes on the Glass profile", check:(s) => ((s.profileCrashCounts||{}).glass||0) >= 50},
     {id:"heavyweight",   emoji:"🚛",       label:"Heavyweight",   desc:"10 crashes with the Hypercar",    check:(s) => (((s.carStats||{}).hyper||{}).crashes||0) >= 10},
     {id:"office_warrior",emoji:"💼",       label:"Office Warrior",desc:"25 crashes in Office Rage mode",  check:(s) => (s.officeRageCrashCount||0) >= 25},
+    {id:"reply_all",     emoji:"📧",       label:"Reply All",     desc:"5 crashes in the Emails theme",    check:(s) => ((s.rageThemeCounts||{}).emails||0) >= 5},
+    {id:"declined",      emoji:"🚫",       label:"Declined",      desc:"5 crashes in the Meetings theme",  check:(s) => ((s.rageThemeCounts||{}).meetings||0) >= 5},
+    {id:"shipped_it",    emoji:"🚀",       label:"Shipped It",    desc:"5 crashes in the Deadlines theme", check:(s) => ((s.rageThemeCounts||{}).deadlines||0) >= 5},
+    {id:"club_150",      emoji:"🎯",       label:"150 Club",      desc:"Hit 150 km/h",                     check:(s) => s.bestSpeed >= 150},
+    {id:"club_200",      emoji:"🎯",       label:"200 Club",      desc:"Hit 200 km/h",                     check:(s) => s.bestSpeed >= 200},
+    {id:"club_250",      emoji:"🎯",       label:"250 Club",      desc:"Hit 250 km/h",                     check:(s) => s.bestSpeed >= 250},
+    {id:"club_350",      emoji:"🎯",       label:"350 Club",      desc:"Hit 350 km/h",                     check:(s) => s.bestSpeed >= 350},
+    {id:"encyclopedia",  emoji:"📖",       label:"Material Encyclopedia", desc:"Crash into all 6 materials at least once", check:(s) => Object.keys(s.materialCrashCounts||{}).length >= 6},
   ];
   function checkAchievements(){
     ACHIEVEMENTS.forEach((a) => {
@@ -610,7 +713,8 @@
     muted: false, hapticsEnabled: true,
     dailyChallenge: null, dailyBestSpeed: {date:null, speed:0},
     profileCrashCounts: {}, officeRageCrashCount: 0, crashHistory: [],
-    unlockedAchievements: [],
+    unlockedAchievements: [], materialPack: "concrete", materialCrashCounts: {},
+    rageThemeCounts: {}, weeklyChallenge: null,
   };
   function getCarStats(carId){
     if(!state.carStats[carId]) state.carStats[carId] = {crashes:0, bestSpeed:0, bestDamage:0};
@@ -666,6 +770,10 @@
     }
     if(state.dailyBestSpeed.date !== today){ state.dailyBestSpeed = {date:today, speed:0}; }
     ensureDailyChallenge();
+    ensureWeeklyChallenge();
+    if(isFridayToday()){
+      setTimeout(() => showToast("🎉 Friday Crash!", "50% bonus rewards on every crash today"), 900);
+    }
   }
   function renderHallOfFame(){
     const el = document.getElementById("hofList"); el.innerHTML = "";
@@ -1010,10 +1118,11 @@
   }
   // Reinforced impact-test wall: padded panel look with hazard corner triangles
   // and a center alignment cross, like a real crash barrier.
-  function makeWallTexture(theme){
+  function makeWallTexture(theme, material, crashCount){
+    const mat = material || getMaterialPack("concrete");
     const c = document.createElement("canvas"); c.width = 512; c.height = 256;
     const ctx = c.getContext("2d");
-    ctx.fillStyle = "#8b9199"; ctx.fillRect(0,0,512,256);
+    ctx.fillStyle = mat.wallBase; ctx.fillRect(0,0,512,256);
     ctx.strokeStyle = "#5d636b"; ctx.lineWidth = 4;
     for(let x=0;x<512;x+=64){ ctx.strokeRect(x,0,64,128); ctx.strokeRect(x,128,64,128); }
     ctx.fillStyle = "#f4c430";
@@ -1028,10 +1137,23 @@
       ctx.font = "bold 16px sans-serif";
       ctx.fillText(theme.label.toUpperCase(), 256, 162);
     } else {
-      ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 5;
+      ctx.strokeStyle = mat.wallAccent; ctx.lineWidth = 5;
       ctx.beginPath(); ctx.moveTo(236,108); ctx.lineTo(276,148); ctx.moveTo(276,108); ctx.lineTo(236,148); ctx.stroke();
-      ctx.strokeStyle = "#d9432f"; ctx.lineWidth = 3;
+      ctx.strokeStyle = mat.wallAccent; ctx.lineWidth = 3;
       ctx.strokeRect(206,78,100,100);
+    }
+    // persistent damage: more crack marks the more you have crashed, lifetime -- so
+    // the wall visibly gets more battle-worn the longer you have been playing
+    const marks = Math.min(30, Math.floor((crashCount||0) / 4));
+    ctx.strokeStyle = "rgba(15,15,18,0.55)"; ctx.lineWidth = 2;
+    let seed = (crashCount||0) * 977;
+    function rnd(){ seed = (seed*1103515245+12345) & 0x7fffffff; return (seed % 1000)/1000; }
+    for(let i=0;i<marks;i++){
+      const x = rnd()*512, y = rnd()*256;
+      ctx.beginPath(); ctx.moveTo(x,y);
+      ctx.lineTo(x + (rnd()-0.5)*40, y + (rnd()-0.5)*30);
+      ctx.lineTo(x + (rnd()-0.5)*50, y + (rnd()-0.5)*40);
+      ctx.stroke();
     }
     return new THREE.CanvasTexture(c);
   }
@@ -1186,7 +1308,7 @@
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
-    const wallMat = new THREE.MeshStandardMaterial({map: makeWallTexture(getRageTheme(state.rageTheme)), roughness:0.8, metalness:0.15});
+    const wallMat = new THREE.MeshStandardMaterial({map: makeWallTexture(getRageTheme(state.rageTheme), getMaterialPack(state.materialPack), state.totalCrashes), roughness:0.8, metalness:0.15});
     wallMesh = new THREE.Mesh(new THREE.BoxGeometry(11, 6, 1.2), wallMat);
     wallMesh.position.set(0, 3, WALL_FAR_Z);
     wallMesh.castShadow = true; wallMesh.receiveShadow = true;
@@ -1202,8 +1324,63 @@
     });
   }
 
+  // Secret office cars get genuinely distinct absurd shapes, not a recolored sedan --
+  // that is the whole joke, so it needs to actually look like the object.
+  function buildPrinterMesh(car, group){
+    const bodyMat = new THREE.MeshStandardMaterial({color:car.color, metalness:0.15, roughness:0.65});
+    const darkMat = new THREE.MeshStandardMaterial({color:0x2a2d31, metalness:0.4, roughness:0.5});
+    const screenMat = new THREE.MeshStandardMaterial({color:0x28e0ff, emissive:0x1499b8, emissiveIntensity:1.1});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.85, 1.6), bodyMat);
+    body.position.set(0, 0.5, 0); body.castShadow = true; body.receiveShadow = true;
+    group.add(body);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.2, 1.3), darkMat);
+    lid.position.set(0, 0.98, -0.05); group.add(lid);
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.9), darkMat);
+    tray.position.set(0, 0.35, 1.15); group.add(tray);
+    const screen = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.05), screenMat);
+    screen.position.set(0.7, 0.95, 0.65); group.add(screen);
+    const wheelGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.2, 10);
+    const wheelMat = new THREE.MeshStandardMaterial({color:0x111213, metalness:0.3, roughness:0.7});
+    [[-0.9,0.75],[0.9,0.75],[-0.9,-0.75],[0.9,-0.75]].forEach((pos) => {
+      const w = new THREE.Mesh(wheelGeo, wheelMat);
+      w.rotation.z = Math.PI/2; w.position.set(pos[0], 0.18, pos[1]); w.castShadow = true;
+      group.add(w);
+    });
+    group.userData.frontBumper = tray;
+    group.userData.windshield = null;
+    return group;
+  }
+  function buildCoffeeMesh(car, group){
+    const bodyMat = new THREE.MeshStandardMaterial({color:car.color, metalness:0.3, roughness:0.4});
+    const darkMat = new THREE.MeshStandardMaterial({color:0x14100c, metalness:0.3, roughness:0.5});
+    const glassMat = new THREE.MeshStandardMaterial({color:0x4a2e18, metalness:0.2, roughness:0.1, transparent:true, opacity:0.7});
+    const buttonMat = new THREE.MeshStandardMaterial({color:0xff5a3d, emissive:0xaa2f18, emissiveIntensity:0.8});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.7, 1.0), bodyMat);
+    body.position.set(0, 0.95, 0); body.castShadow = true; body.receiveShadow = true;
+    group.add(body);
+    const carafe = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.24, 0.55, 12), glassMat);
+    carafe.position.set(0, 0.35, 0.55); group.add(carafe);
+    const trayBase = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.1, 0.5), darkMat);
+    trayBase.position.set(0, 0.12, 0.55); group.add(trayBase);
+    [[-0.25,1.3],[0.05,1.3]].forEach((pos) => {
+      const btn = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.05), buttonMat);
+      btn.position.set(pos[0], pos[1], 0.53); group.add(btn);
+    });
+    const wheelGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.18, 10);
+    const wheelMat = new THREE.MeshStandardMaterial({color:0x111213, metalness:0.3, roughness:0.7});
+    [[-0.45,0.42],[0.45,0.42],[-0.45,-0.42],[0.45,-0.42]].forEach((pos) => {
+      const w = new THREE.Mesh(wheelGeo, wheelMat);
+      w.rotation.z = Math.PI/2; w.position.set(pos[0], 0.16, pos[1]); w.castShadow = true;
+      group.add(w);
+    });
+    group.userData.frontBumper = carafe;
+    group.userData.windshield = null;
+    return group;
+  }
   function buildCarMesh(car){
     const group = new THREE.Group();
+    if(car.id === "printer") return buildPrinterMesh(car, group);
+    if(car.id === "coffee") return buildCoffeeMesh(car, group);
     const bodyMat = new THREE.MeshStandardMaterial({color:car.color, metalness:car.metalness, roughness:car.roughness, envMapIntensity:1.1});
     const darkMat = new THREE.MeshStandardMaterial({color:0x1a1d21, metalness:0.5, roughness:0.5});
     const glassMat = new THREE.MeshStandardMaterial({color:0xb9e3f5, metalness:0.9, roughness:0.05, transparent:true, opacity:0.5});
@@ -1338,8 +1515,9 @@
     document.getElementById("speedFill").style.width = Math.min(100, (speed/car.maxSpeed)*100) + "%";
   }
   function renderStats(){
+    const dailyBest = state.dailyBestSpeed.date === todayStr() ? state.dailyBestSpeed.speed : 0;
     document.getElementById("statsStrip").innerHTML =
-      "Best: " + Math.round(state.bestSpeed) + " km/h<br>Crashes: " + state.totalCrashes + "<br>Lifetime: " + fmt(state.totalEarned);
+      "Best: " + Math.round(state.bestSpeed) + " km/h<br>Today: " + Math.round(dailyBest) + " km/h · 🔥" + (profile.streak||0) + "<br>Crashes: " + state.totalCrashes + "<br>Lifetime: " + fmt(state.totalEarned);
   }
   function showToast(title, sub){
     const layer = document.getElementById("toastLayer");
@@ -1357,7 +1535,8 @@
   function computeReward(impactSpeed, car){
     const base = Math.pow(Math.max(impactSpeed,1), 1.6) * 0.06 * car.rewardMult;
     const variance = 0.9 + Math.random()*0.2;
-    return Math.max(1, Math.round(base * variance));
+    const fridayMult = isFridayToday() ? 1.5 : 1;
+    return Math.max(1, Math.round(base * variance * fridayMult));
   }
 
   function deformCar(ratio, impactOrigin){
@@ -1718,23 +1897,35 @@
     const isRecord = impactScore > state.bestImpactScore;
     if(isRecord) state.bestImpactScore = impactScore;
 
-    // Phase 3 tracking: daily best, daily challenge progress, achievements, crash history
+    // Phase 3 tracking: daily best, daily/weekly challenge progress, achievements, crash history
     if(state.dailyBestSpeed.date !== todayStr()) state.dailyBestSpeed = {date:todayStr(), speed:0};
     if(impactSpeed > state.dailyBestSpeed.speed) state.dailyBestSpeed.speed = impactSpeed;
     updateDailyChallengeProgress(impactSpeed, damagePercent);
+    updateWeeklyChallengeProgress(impactSpeed);
     state.profileCrashCounts[state.crashProfile] = (state.profileCrashCounts[state.crashProfile]||0) + 1;
-    if(state.rageTheme !== "default") state.officeRageCrashCount += 1;
+    state.materialCrashCounts[state.materialPack] = (state.materialCrashCounts[state.materialPack]||0) + 1;
+    if(state.rageTheme !== "default"){
+      state.officeRageCrashCount += 1;
+      state.rageThemeCounts[state.rageTheme] = (state.rageThemeCounts[state.rageTheme]||0) + 1;
+    }
     state.crashHistory.push({carId: state.activeCarId, speed: impactSpeed, damage: damagePercent, reward: reward});
     if(state.crashHistory.length > 15) state.crashHistory.shift();
+    const impactPower = Math.round((impactSpeed * (car.mass||1500)/1000) * (1 + damagePercent/100));
+    if(wallMesh){
+      wallMesh.material.map = makeWallTexture(getRageTheme(state.rageTheme), getMaterialPack(state.materialPack), state.totalCrashes+1);
+      wallMesh.material.needsUpdate = true;
+    }
 
     checkMilestones();
     checkAchievements();
+    checkSecretCarUnlocks();
     save(); renderMoney(); renderStats(); renderMilestoneBar();
 
     document.getElementById("rcSpeed").textContent = "Impact speed: " + Math.round(impactSpeed) + " km/h";
     document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "% \u2014 " + damageTierLabel(damagePercent);
     document.getElementById("rcMoney").textContent = "+" + fmt(reward);
     document.getElementById("rcScore").textContent = "Impact Score " + impactScore.toLocaleString() + (isRecord ? "  🏆 NEW RECORD" : "");
+    document.getElementById("rcPower").textContent = "Impact Power " + impactPower.toLocaleString() + " kN" + (isFridayToday() ? "  🎉 Friday Bonus" : "");
     renderDamageZones(damagePercent);
     const rageTheme = getRageTheme(state.rageTheme);
     const captionEl = document.getElementById("rcCaption");
@@ -1826,16 +2017,27 @@
     CARS.forEach((car) => {
       const owned = state.ownedCarIds.indexOf(car.id) !== -1;
       const active = state.activeCarId === car.id;
+      const locked = car.secret && !owned;
       const div = document.createElement("div");
       div.className = "car-card" + (owned ? " owned" : "") + (active ? " active" : "");
       const swatchColor = "#" + car.color.toString(16).padStart(6,"0");
+      const rarityClass = "rarity-" + car.rarity.toLowerCase();
+      if(locked){
+        div.innerHTML =
+          '<div class="car-swatch" style="background:#333"></div>' +
+          '<div class="car-info"><div class="car-name">🔒 ???</div>' +
+          '<div class="car-personality">' + car.unlockDesc + '</div></div>' +
+          '<div class="rarity-badge ' + rarityClass + '">' + car.rarity + '</div>';
+        el.appendChild(div);
+        return;
+      }
       div.innerHTML =
         '<div class="car-swatch" style="background:' + swatchColor + '"></div>' +
-        '<div class="car-info"><div class="car-name">' + car.name + '</div>' +
+        '<div class="car-info"><div class="car-name">' + car.name + ' <span class="rarity-badge ' + rarityClass + '">' + car.rarity + '</span></div>' +
         '<div class="car-personality">' + car.personality + '</div>' +
-        '<div class="car-sub">Top speed ' + car.maxSpeed + ' km/h &middot; Reward x' + car.rewardMult.toFixed(1) + '</div></div>';
+        '<div class="car-sub">Top speed ' + car.maxSpeed + ' km/h &middot; Reward x' + car.rewardMult.toFixed(1) + ' &middot; Mass ' + car.mass.toLocaleString() + ' kg</div></div>';
       const btn = document.createElement("button");
-      if(!owned){
+      if(!owned && !car.secret){
         btn.className = "car-action buy"; btn.textContent = fmt(car.cost);
         btn.disabled = state.money < car.cost;
         btn.onclick = () => buyCar(car);
@@ -1847,6 +2049,15 @@
       }
       div.appendChild(btn);
       el.appendChild(div);
+    });
+  }
+  function checkSecretCarUnlocks(){
+    CARS.forEach((car) => {
+      if(car.secret && state.ownedCarIds.indexOf(car.id) === -1 && car.unlockCheck && car.unlockCheck(state)){
+        state.ownedCarIds.push(car.id);
+        showToast("🔓 Secret car unlocked!", car.name);
+        playMilestone();
+      }
     });
   }
   function buyCar(car){
@@ -1917,12 +2128,35 @@
   function selectRageTheme(theme){
     state.rageTheme = theme.id;
     if(wallMesh){
-      wallMesh.material.map = makeWallTexture(theme);
+      wallMesh.material.map = makeWallTexture(theme, getMaterialPack(state.materialPack), state.totalCrashes);
       wallMesh.material.needsUpdate = true;
     }
     document.getElementById("officeRageModal").style.display = "none";
     uiBlocked = false;
     showToast(theme.emoji + " Now crashing: " + theme.label, "Same wall, different feelings.");
+    save();
+  }
+  function renderMaterialGrid(){
+    const el = document.getElementById("materialGrid"); el.innerHTML = "";
+    MATERIAL_PACKS.forEach((m) => {
+      const count = state.materialCrashCounts[m.id] || 0;
+      const d = document.createElement("div");
+      d.className = "rage-choice";
+      d.innerHTML = '<span class="rg-emoji">' + m.emoji + '</span>' + m.label + '<div class="session-desc">' + (count > 0 ? count + " crashes here" : "Not yet tried") + '</div>';
+      d.onclick = () => selectMaterial(m);
+      el.appendChild(d);
+    });
+  }
+  function selectMaterial(material){
+    state.materialPack = material.id;
+    state.crashProfile = material.soundProfile;
+    if(wallMesh){
+      wallMesh.material.map = makeWallTexture(getRageTheme(state.rageTheme), material, state.totalCrashes);
+      wallMesh.material.needsUpdate = true;
+    }
+    document.getElementById("materialModal").style.display = "none";
+    uiBlocked = false;
+    showToast(material.emoji + " " + material.label, "Sound profile matched automatically.");
     save();
   }
   document.getElementById("officeRageBtn").addEventListener("click", () => {
@@ -1959,7 +2193,7 @@
     uiBlocked = false;
   });
   document.getElementById("dailyChallengeBtn").addEventListener("click", () => {
-    renderDailyChallenge();
+    renderDailyChallenge(); renderWeeklyChallenge();
     document.getElementById("dailyChallengeModal").style.display = "flex";
     uiBlocked = true;
   });
@@ -1969,6 +2203,18 @@
   });
   document.getElementById("dailyChallengeClaimBtn").addEventListener("click", () => {
     claimDailyChallenge();
+  });
+  document.getElementById("weeklyChallengeClaimBtn").addEventListener("click", () => {
+    claimWeeklyChallenge();
+  });
+  document.getElementById("materialBtn").addEventListener("click", () => {
+    renderMaterialGrid();
+    document.getElementById("materialModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("materialCloseBtn").addEventListener("click", () => {
+    document.getElementById("materialModal").style.display = "none";
+    uiBlocked = false;
   });
   document.getElementById("endSessionDoneBtn").addEventListener("click", () => {
     document.getElementById("endSessionModal").style.display = "none";
@@ -1982,8 +2228,23 @@
     startSession(state.sessionMode);
     resetRun();
   });
+  function renderMaterialEncyclopedia(){
+    const el = document.getElementById("materialEncyclopedia"); if(!el) return;
+    el.innerHTML = "";
+    MATERIAL_PACKS.forEach((m) => {
+      const count = state.materialCrashCounts[m.id] || 0;
+      const discovered = count > 0;
+      const d = document.createElement("div");
+      d.className = "hof-card";
+      d.innerHTML =
+        '<div style="font-size:24px;">' + (discovered ? m.emoji : "🔒") + '</div>' +
+        '<div class="hof-info"><div class="hof-name">' + m.label + '</div><div class="hof-sub">' + (discovered ? count + " crashes" : "Not yet discovered") + '</div></div>' +
+        '<div class="hof-title' + (discovered ? "" : " locked") + '">' + (discovered ? "Discovered" : "Locked") + '</div>';
+      el.appendChild(d);
+    });
+  }
   document.getElementById("hallOfFameBtn").addEventListener("click", () => {
-    renderHallOfFame(); renderAchievements(); renderCrashHistory();
+    renderHallOfFame(); renderAchievements(); renderCrashHistory(); renderMaterialEncyclopedia();
     document.getElementById("hallOfFameModal").style.display = "flex";
     uiBlocked = true;
   });
