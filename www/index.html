@@ -88,6 +88,18 @@
   }
   .rage-choice:active{background:var(--bg);}
   .rage-choice .rg-emoji{font-size:28px; display:block; margin-bottom:6px;}
+  .session-grid{grid-template-columns:1fr;}
+  .session-desc{font-size:11px; font-weight:400; color:var(--muted); margin-top:4px;}
+  .session-indicator{
+    position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    background:var(--card); border:1px solid var(--cyan); border-radius:20px; padding:6px 14px;
+    font-size:12px; font-weight:800; color:var(--cyan); display:flex; align-items:center; gap:6px;
+    z-index:12;
+  }
+  .end-session-stats{
+    background:var(--card); border-radius:10px; padding:14px; font-size:14px; line-height:1.8;
+    color:var(--text); text-align:left; margin:12px 0;
+  }
   .avatar-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;}
   .avatar-choice{font-size:26px; background:var(--card); border:2px solid var(--line); border-radius:10px; padding:8px 0; cursor:pointer; text-align:center;}
   .avatar-choice.selected{border-color:var(--cyan); background:rgba(41,229,255,0.12);}
@@ -254,6 +266,7 @@
       <div class="money" id="moneyDisplay">$0</div>
       <button class="icon-btn" id="garageBtn" title="Garage">🚗</button>
       <button class="icon-btn" id="officeRageBtn" title="Office Rage mode">😤</button>
+      <button class="icon-btn" id="sessionBtn" title="Session mode">⏱️</button>
       <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
@@ -277,6 +290,7 @@
     </div>
   </div>
   <div class="tap-hint" id="tapHint">TAP RAPIDLY TO ACCELERATE</div>
+  <div class="session-indicator" id="sessionIndicator" style="display:none;"></div>
 </div>
 
 <div class="tap-zone" id="tapZone"></div>
@@ -322,6 +336,11 @@
       <div class="settings-block-label">Crash sound profile</div>
       <div class="level-grid" id="crashProfileGrid"></div>
     </div>
+    <div class="settings-block">
+      <div class="settings-block-label">Stress presets (sets profile + haptics + Zen at once)</div>
+      <div class="level-grid" id="stressPresetGrid"></div>
+    </div>
+    <div class="settings-row"><span>Screen flash on impact</span><button class="icon-btn" id="screenFlashToggleBtn">☀️</button></div>
     <div class="settings-row"><span>🧘 Zen Mode</span><button class="icon-btn" id="zenToggleBtn">🚫</button></div>
     <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
@@ -332,6 +351,23 @@
   <div class="modal-card">
     <h2>What's pissing you off today? <span class="close-x" id="officeRageCloseBtn">✕</span></h2>
     <div class="rage-grid" id="rageGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sessionModal" style="display:none;">
+  <div class="modal-card">
+    <h2>How long today? <span class="close-x" id="sessionCloseBtn">✕</span></h2>
+    <div class="rage-grid session-grid" id="sessionGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="endSessionModal" style="display:none;">
+  <div class="modal-card" style="text-align:center;">
+    <h2 style="justify-content:center;">You're done for today</h2>
+    <div class="end-session-stats" id="endSessionStats"></div>
+    <div style="margin:14px 0; color:var(--muted); font-size:13px;">Take a breath.</div>
+    <button class="rc-btn" id="endSessionMoreBtn" style="margin-bottom:8px;">One More</button>
+    <button class="rc-btn" id="endSessionDoneBtn" style="background:var(--card); color:var(--text);">Done</button>
   </div>
 </div>
 
@@ -358,13 +394,15 @@
   window.addEventListener("unhandledrejection", (e) => { logError("Promise rejection: " + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
 
   // ---------- car catalog ----------
+  // enginePitch scales the whole engine register (lower = deeper/chestier, higher = sportier
+  // whine). engineGrit adds extra distortion/roughness for ragged, unrefined cars.
   const CARS = [
-    {id:"beater", name:"Rusty Beater",      cost:0,      maxSpeed:110, rewardMult:1.0, color:0x9c5a3c, metalness:0.25, roughness:0.75, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false},
-    {id:"sedan",  name:"Sport Sedan",       cost:800,    maxSpeed:150, rewardMult:1.3, color:0x2b6fd1, metalness:0.55, roughness:0.35, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false},
-    {id:"muscle", name:"Muscle Coupe",      cost:4000,   maxSpeed:190, rewardMult:1.7, color:0x181a1e, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0xe8e8e8, underglow:null,     calipers:0xff3b3b, scoop:true},
-    {id:"tuner",  name:"Street Tuner",      cost:15000,  maxSpeed:220, rewardMult:2.1, color:0xd1272b, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0x151515, underglow:0x29e5ff, calipers:0xffd23f, scoop:false},
-    {id:"super",  name:"Apex Supercar",     cost:70000,  maxSpeed:260, rewardMult:2.7, color:0x2fae5c, metalness:0.9,  roughness:0.1,  spoiler:true,  stripe:0x0c2016, underglow:0x39ff8f, calipers:0xffd23f, scoop:true},
-    {id:"hyper",  name:"Prestige Hypercar", cost:350000, maxSpeed:310, rewardMult:3.5, color:0xd4af37, metalness:0.95, roughness:0.06, spoiler:true,  stripe:0x1a1a1a, underglow:0xff2e9a, calipers:0xff2e9a, scoop:true},
+    {id:"beater", name:"Rusty Beater",      cost:0,      maxSpeed:110, rewardMult:1.0, color:0x9c5a3c, metalness:0.25, roughness:0.75, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:0.8,  engineGrit:1.6},
+    {id:"sedan",  name:"Sport Sedan",       cost:800,    maxSpeed:150, rewardMult:1.3, color:0x2b6fd1, metalness:0.55, roughness:0.35, spoiler:false, stripe:null,     underglow:null,     calipers:null,     scoop:false, enginePitch:1.0,  engineGrit:0.9},
+    {id:"muscle", name:"Muscle Coupe",      cost:4000,   maxSpeed:190, rewardMult:1.7, color:0x181a1e, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0xe8e8e8, underglow:null,     calipers:0xff3b3b, scoop:true,  enginePitch:0.72, engineGrit:1.3},
+    {id:"tuner",  name:"Street Tuner",      cost:15000,  maxSpeed:220, rewardMult:2.1, color:0xd1272b, metalness:0.75, roughness:0.2,  spoiler:true,  stripe:0x151515, underglow:0x29e5ff, calipers:0xffd23f, scoop:false, enginePitch:1.35, engineGrit:1.1},
+    {id:"super",  name:"Apex Supercar",     cost:70000,  maxSpeed:260, rewardMult:2.7, color:0x2fae5c, metalness:0.9,  roughness:0.1,  spoiler:true,  stripe:0x0c2016, underglow:0x39ff8f, calipers:0xffd23f, scoop:true,  enginePitch:1.6,  engineGrit:0.8},
+    {id:"hyper",  name:"Prestige Hypercar", cost:350000, maxSpeed:310, rewardMult:3.5, color:0xd4af37, metalness:0.95, roughness:0.06, spoiler:true,  stripe:0x1a1a1a, underglow:0xff2e9a, calipers:0xff2e9a, scoop:true,  enginePitch:1.45, engineGrit:0.55},
   ];
   function getCar(id){ for(let i=0;i<CARS.length;i++){ if(CARS[i].id === id) return CARS[i]; } return CARS[0]; }
 
@@ -380,6 +418,26 @@
     {id:"everything",    emoji:"\uD83D\uDC80", label:"Everything",    captions:["YOUR MANAGER WILL NEVER KNOW.","EVERYTHING, HANDLED."]},
   ];
   function getRageTheme(id){ for(let i=0;i<RAGE_THEMES.length;i++){ if(RAGE_THEMES[i].id===id) return RAGE_THEMES[i]; } return RAGE_THEMES[0]; }
+
+  // Quick session modes -- not every visit should be endless. Selecting one
+  // starts a runtime-only tracker (not deep progress, just "how's this visit going").
+  const SESSION_MODES = [
+    {id:"endless",   emoji:"\u267E\uFE0F", label:"Endless",      desc:"Play as long as you want."},
+    {id:"quick",     emoji:"\u23F1\uFE0F", label:"Quick Release", desc:"30 seconds. Tap, crash, done."},
+    {id:"afterwork", emoji:"\uD83D\uDCBC", label:"After Work",    desc:"3 crashes: warm-up, big impact, ultimate."},
+  ];
+  function getSessionMode(id){ for(let i=0;i<SESSION_MODES.length;i++){ if(SESSION_MODES[i].id===id) return SESSION_MODES[i]; } return SESSION_MODES[0]; }
+  let sessionTimerId = null, sessionSecondsLeft = 30, sessionCrashesDone = 0, sessionBestSpeed = 0;
+
+  // Stress presets bundle several existing settings into one emotional choice,
+  // rather than making the player configure crash profile + haptics separately.
+  const STRESS_PRESETS = [
+    {id:"bad",      emoji:"\uD83D\uDE24", label:"Bad Day",      crashProfile:"destruction", hapticIntensity:"strong",    zenMode:false},
+    {id:"normal",   emoji:"\uD83D\uDE10", label:"Normal Day",   crashProfile:"metal",       hapticIntensity:"normal",    zenMode:false},
+    {id:"tired",    emoji:"\uD83D\uDE34", label:"Tired",        crashProfile:"soft",        hapticIntensity:"soft",      zenMode:false},
+    {id:"zenp",     emoji:"\uD83E\uDDD8", label:"Zen",          crashProfile:"zen",         hapticIntensity:"soft",      zenMode:true},
+    {id:"terrible", emoji:"\uD83E\uDD2C", label:"Terrible Day", crashProfile:"destruction", hapticIntensity:"cinematic", zenMode:false},
+  ];
 
   const AVATARS = ["🏎️", "🚀", "🔥", "💀", "⚡", "🤖", "😈", "🏁"];
 
@@ -412,6 +470,7 @@
     bestSpeed: 0, totalCrashes: 0, totalEarned: 0, milestoneIndex: 0,
     carStats: {}, odometerKm: 0, bestImpactScore: 0, rageTheme: "default",
     hapticIntensity: "normal", crashProfile: "metal", zenMode: false, ambientOn: true,
+    sessionMode: "endless", screenFlashOn: true,
     muted: false, hapticsEnabled: true,
   };
   function getCarStats(carId){
@@ -608,7 +667,8 @@
     engineGain.connect(ctx.destination);
 
     engineFilter = ctx.createBiquadFilter(); engineFilter.type = "lowpass"; engineFilter.frequency.value = 420;
-    engineDistortion = ctx.createWaveShaper(); engineDistortion.curve = makeDistortionCurve(14); engineDistortion.oversample = "2x";
+    const startCar = getCar(state.activeCarId);
+    engineDistortion = ctx.createWaveShaper(); engineDistortion.curve = makeDistortionCurve(14 * (startCar.engineGrit||1)); engineDistortion.oversample = "2x";
     engineFilter.connect(engineDistortion); engineDistortion.connect(engineGain);
 
     // deeper, more "chesty" V8 register than a high-revving import engine
@@ -645,16 +705,18 @@
     const targetGain = state.muted ? 0 : (running ? 0.1 + cappedRatio*0.28 : 0.001);
     engineGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
 
-    // small random jitter on the firing rate -- real big-block V8s never pulse perfectly evenly
+    // per-car engine identity: pitch scales the whole register so each car genuinely
+    // sounds different, not just louder -- a beater growls low, a supercar whines high
+    const pitch = car.enginePitch || 1;
     const jitter = (Math.random() - 0.5) * 2.5;
-    const firingFreq = 13 + ratio*38 + jitter;
+    const firingFreq = (13 + ratio*38 + jitter) * pitch;
     engineMod.frequency.setTargetAtTime(Math.max(6, firingFreq), audioCtx.currentTime, 0.07);
 
-    const carrierFreq = 42 + ratio*115;
+    const carrierFreq = (42 + ratio*115) * pitch;
     engineCarrier.frequency.setTargetAtTime(carrierFreq, audioCtx.currentTime, 0.08);
     engineCarrier2.frequency.setTargetAtTime(carrierFreq*1.015, audioCtx.currentTime, 0.08);
 
-    engineRumble.frequency.setTargetAtTime(28 + ratio*34, audioCtx.currentTime, 0.1);
+    engineRumble.frequency.setTargetAtTime((28 + ratio*34) * pitch, audioCtx.currentTime, 0.1);
     engineRumbleGain.gain.setTargetAtTime(state.muted ? 0 : (0.26+cappedRatio*0.22), audioCtx.currentTime, 0.1);
 
     engineFilter.frequency.setTargetAtTime(420 + ratio*2200, audioCtx.currentTime, 0.08);
@@ -1282,15 +1344,60 @@
     }
   }
   function flashScreen(){
-    const el = document.getElementById("crashFlash");
-    el.style.transition = "none"; el.style.opacity = "0.85";
-    requestAnimationFrame(() => { el.style.transition = "opacity 0.4s ease"; el.style.opacity = "0"; });
+    if(state.screenFlashOn){
+      const el = document.getElementById("crashFlash");
+      el.style.transition = "none"; el.style.opacity = "0.85";
+      requestAnimationFrame(() => { el.style.transition = "opacity 0.4s ease"; el.style.opacity = "0"; });
+    }
     document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
   }
   function pulseVignette(){
     const el = document.getElementById("vignetteOverlay");
     if(!el) return;
     el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse");
+  }
+
+  function startSession(modeId){
+    state.sessionMode = modeId;
+    sessionCrashesDone = 0; sessionBestSpeed = 0;
+    if(sessionTimerId){ clearInterval(sessionTimerId); sessionTimerId = null; }
+    const indicator = document.getElementById("sessionIndicator");
+    indicator.style.display = modeId === "endless" ? "none" : "flex";
+    if(modeId === "quick"){
+      sessionSecondsLeft = 30;
+      renderSessionIndicator();
+      sessionTimerId = setInterval(() => {
+        sessionSecondsLeft -= 1;
+        renderSessionIndicator();
+        if(sessionSecondsLeft <= 0){ clearInterval(sessionTimerId); sessionTimerId = null; if(!crashed) showEndOfSession(); }
+      }, 1000);
+    } else if(modeId === "afterwork"){
+      renderSessionIndicator();
+    }
+    save();
+  }
+  function renderSessionIndicator(){
+    const el = document.getElementById("sessionIndicator");
+    if(!el) return;
+    if(state.sessionMode === "quick"){
+      el.textContent = "\u23F1\uFE0F " + Math.max(0,sessionSecondsLeft) + "s";
+    } else if(state.sessionMode === "afterwork"){
+      const labels = ["Warm-up","Big Impact","Ultimate Crash"];
+      const idx = Math.min(sessionCrashesDone, 2);
+      el.textContent = "\uD83D\uDCBC " + labels[idx] + " (" + Math.min(sessionCrashesDone,3) + "/3)";
+    }
+  }
+  function sessionJustCompleted(){
+    if(state.sessionMode === "quick") return sessionCrashesDone >= 1;
+    if(state.sessionMode === "afterwork") return sessionCrashesDone >= 3;
+    return false;
+  }
+  function showEndOfSession(){
+    if(sessionTimerId){ clearInterval(sessionTimerId); sessionTimerId = null; }
+    document.getElementById("endSessionStats").innerHTML =
+      "Crashes: " + sessionCrashesDone + "<br>Best impact this session: " + Math.round(sessionBestSpeed) + " km/h";
+    document.getElementById("endSessionModal").style.display = "flex";
+    uiBlocked = true;
   }
 
   // Progressive damage tiers -- visibly distinct stages instead of a flat 50% floor.
@@ -1455,6 +1562,11 @@
     const reward = computeReward(impactSpeed, car);
     state.money += reward; state.totalEarned += reward; state.totalCrashes += 1;
     if(impactSpeed > state.bestSpeed) state.bestSpeed = impactSpeed;
+    if(state.sessionMode !== "endless"){
+      sessionCrashesDone += 1;
+      if(impactSpeed > sessionBestSpeed) sessionBestSpeed = impactSpeed;
+      renderSessionIndicator();
+    }
 
     const cs = getCarStats(state.activeCarId);
     cs.crashes += 1;
@@ -1485,7 +1597,9 @@
     setTimeout(() => {
       playCrashReplay(impactSpeed, damagePercent, () => {
         document.querySelector(".hud").classList.remove("impact-hide");
-        if(state.zenMode){
+        if(sessionJustCompleted()){
+          showEndOfSession();
+        } else if(state.zenMode){
           showZenReleased();
           setTimeout(() => { resetRun(); }, 1400);
         } else {
@@ -1614,7 +1728,8 @@
     document.getElementById("hapticsToggleBtn").textContent = state.hapticsEnabled ? "📳" : "🚫";
     document.getElementById("ambientToggleBtn").textContent = state.ambientOn ? "🔊" : "🔇";
     document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
-    renderHapticLevels(); renderCrashProfiles();
+    document.getElementById("screenFlashToggleBtn").textContent = state.screenFlashOn ? "\u2600\uFE0F" : "\uD83C\uDF11";
+    renderHapticLevels(); renderCrashProfiles(); renderStressPresets();
     document.getElementById("crashSettingsModal").style.display = "flex";
     uiBlocked = true;
   });
@@ -1666,6 +1781,42 @@
   document.getElementById("officeRageCloseBtn").addEventListener("click", () => {
     document.getElementById("officeRageModal").style.display = "none";
     uiBlocked = false;
+  });
+  function renderSessionGrid(){
+    const el = document.getElementById("sessionGrid"); el.innerHTML = "";
+    SESSION_MODES.forEach((m) => {
+      const d = document.createElement("div");
+      d.className = "rage-choice";
+      d.innerHTML = '<span class="rg-emoji">' + m.emoji + '</span><b>' + m.label + '</b><div class="session-desc">' + m.desc + '</div>';
+      d.onclick = () => {
+        startSession(m.id);
+        document.getElementById("sessionModal").style.display = "none";
+        uiBlocked = false;
+        showToast(m.emoji + " " + m.label, m.desc);
+      };
+      el.appendChild(d);
+    });
+  }
+  document.getElementById("sessionBtn").addEventListener("click", () => {
+    renderSessionGrid();
+    document.getElementById("sessionModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("sessionCloseBtn").addEventListener("click", () => {
+    document.getElementById("sessionModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("endSessionDoneBtn").addEventListener("click", () => {
+    document.getElementById("endSessionModal").style.display = "none";
+    uiBlocked = false;
+    startSession("endless");
+    resetRun();
+  });
+  document.getElementById("endSessionMoreBtn").addEventListener("click", () => {
+    document.getElementById("endSessionModal").style.display = "none";
+    uiBlocked = false;
+    startSession(state.sessionMode);
+    resetRun();
   });
   document.getElementById("hallOfFameBtn").addEventListener("click", () => {
     renderHallOfFame();
@@ -1732,6 +1883,31 @@
     applyZenModeUi();
     save();
   });
+  function renderStressPresets(){
+    const el = document.getElementById("stressPresetGrid"); if(!el) return;
+    el.innerHTML = "";
+    STRESS_PRESETS.forEach((p) => {
+      const b = document.createElement("button");
+      b.className = "level-choice";
+      b.textContent = p.emoji + " " + p.label;
+      b.onclick = () => {
+        state.crashProfile = p.crashProfile;
+        state.hapticIntensity = p.hapticIntensity;
+        state.zenMode = p.zenMode;
+        applyZenModeUi();
+        document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
+        renderHapticLevels(); renderCrashProfiles();
+        showToast(p.emoji + " " + p.label, "Profile, haptics and Zen Mode all set.");
+        save();
+      };
+      el.appendChild(b);
+    });
+  }
+  document.getElementById("screenFlashToggleBtn").addEventListener("click", () => {
+    state.screenFlashOn = !state.screenFlashOn;
+    document.getElementById("screenFlashToggleBtn").textContent = state.screenFlashOn ? "\u2600\uFE0F" : "\uD83C\uDF11";
+    save();
+  });
   document.getElementById("testVibrateBtn").addEventListener("click", () => {
     const wasEnabled = state.hapticsEnabled;
     state.hapticsEnabled = true;
@@ -1787,6 +1963,7 @@
       rebuildActiveCar();
       renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar(); renderOdometer();
       applyZenModeUi();
+      startSession(state.sessionMode || "endless");
       requestAnimationFrame(animate);
       if(profile.name){
         applyProfileUi();
