@@ -459,33 +459,47 @@
       engineBaseGain=null, engineMod=null, engineModGain=null,
       engineRumble=null, engineRumbleGain=null,
       engineNoiseSrc=null, engineNoiseFilter=null, engineNoiseGain=null;
+  // Retuned for a big-block V8 muscle-car character (1970 Dodge Charger R/T style):
+  // deeper carrier register, a slower/chunkier "lopey" firing pulse instead of a
+  // smooth high buzz, mild waveshaper distortion for throat/growl, and small random
+  // jitter on the firing rate so it doesn't sound perfectly clinical -- real big
+  // V8s idle roughly, not smoothly.
+  function makeDistortionCurve(amount){
+    const k = amount, n = 2048, curve = new Float32Array(n), deg = Math.PI/180;
+    for(let i=0;i<n;i++){ const x = i*2/n - 1; curve[i] = (3+k)*x*20*deg / (Math.PI + k*Math.abs(x)); }
+    return curve;
+  }
+  let engineDistortion = null;
   function startEngineAudio(){
     const ctx = ensureAudio(); if(!ctx || engineGain) return;
     engineGain = ctx.createGain(); engineGain.gain.value = 0.001;
     engineGain.connect(ctx.destination);
 
-    engineFilter = ctx.createBiquadFilter(); engineFilter.type = "lowpass"; engineFilter.frequency.value = 500;
-    engineFilter.connect(engineGain);
+    engineFilter = ctx.createBiquadFilter(); engineFilter.type = "lowpass"; engineFilter.frequency.value = 420;
+    engineDistortion = ctx.createWaveShaper(); engineDistortion.curve = makeDistortionCurve(14); engineDistortion.oversample = "2x";
+    engineFilter.connect(engineDistortion); engineDistortion.connect(engineGain);
 
-    engineCarrier = ctx.createOscillator(); engineCarrier.type = "sawtooth"; engineCarrier.frequency.value = 70;
-    engineCarrier2 = ctx.createOscillator(); engineCarrier2.type = "square"; engineCarrier2.frequency.value = 70.5;
-    engineBaseGain = ctx.createGain(); engineBaseGain.gain.value = 0.55;
+    // deeper, more "chesty" V8 register than a high-revving import engine
+    engineCarrier = ctx.createOscillator(); engineCarrier.type = "sawtooth"; engineCarrier.frequency.value = 46;
+    engineCarrier2 = ctx.createOscillator(); engineCarrier2.type = "sawtooth"; engineCarrier2.frequency.value = 46.7;
+    engineBaseGain = ctx.createGain(); engineBaseGain.gain.value = 0.6;
     engineCarrier.connect(engineBaseGain); engineCarrier2.connect(engineBaseGain);
     engineBaseGain.connect(engineFilter);
 
-    engineMod = ctx.createOscillator(); engineMod.type = "square"; engineMod.frequency.value = 28;
-    engineModGain = ctx.createGain(); engineModGain.gain.value = 0.4;
+    // slower, chunkier firing pulse -- a V8's characteristic lopey idle rather than a smooth buzz
+    engineMod = ctx.createOscillator(); engineMod.type = "square"; engineMod.frequency.value = 13;
+    engineModGain = ctx.createGain(); engineModGain.gain.value = 0.5;
     engineMod.connect(engineModGain);
     engineModGain.connect(engineBaseGain.gain);
 
-    engineRumble = ctx.createOscillator(); engineRumble.type = "sine"; engineRumble.frequency.value = 42;
-    engineRumbleGain = ctx.createGain(); engineRumbleGain.gain.value = 0.3;
+    engineRumble = ctx.createOscillator(); engineRumble.type = "sine"; engineRumble.frequency.value = 32;
+    engineRumbleGain = ctx.createGain(); engineRumbleGain.gain.value = 0.34;
     engineRumble.connect(engineRumbleGain); engineRumbleGain.connect(engineGain);
 
     engineNoiseSrc = ctx.createBufferSource();
     engineNoiseSrc.buffer = makeLoopingNoiseBuffer(ctx, 2.0);
     engineNoiseSrc.loop = true;
-    engineNoiseFilter = ctx.createBiquadFilter(); engineNoiseFilter.type = "bandpass"; engineNoiseFilter.frequency.value = 800;
+    engineNoiseFilter = ctx.createBiquadFilter(); engineNoiseFilter.type = "bandpass"; engineNoiseFilter.frequency.value = 650;
     engineNoiseGain = ctx.createGain(); engineNoiseGain.gain.value = 0.001;
     engineNoiseSrc.connect(engineNoiseFilter); engineNoiseFilter.connect(engineNoiseGain); engineNoiseGain.connect(engineGain);
 
@@ -496,23 +510,25 @@
     const car = getCar(state.activeCarId);
     const ratio = Math.max(0, Math.min(1.4, speed / car.maxSpeed));
     const cappedRatio = Math.min(1, ratio);
-    const targetGain = state.muted ? 0 : (running ? 0.09 + cappedRatio*0.26 : 0.001);
+    const targetGain = state.muted ? 0 : (running ? 0.1 + cappedRatio*0.28 : 0.001);
     engineGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
 
-    const firingFreq = 18 + ratio*72;
-    engineMod.frequency.setTargetAtTime(firingFreq, audioCtx.currentTime, 0.08);
+    // small random jitter on the firing rate -- real big-block V8s never pulse perfectly evenly
+    const jitter = (Math.random() - 0.5) * 2.5;
+    const firingFreq = 13 + ratio*38 + jitter;
+    engineMod.frequency.setTargetAtTime(Math.max(6, firingFreq), audioCtx.currentTime, 0.07);
 
-    const carrierFreq = 55 + ratio*190;
+    const carrierFreq = 42 + ratio*115;
     engineCarrier.frequency.setTargetAtTime(carrierFreq, audioCtx.currentTime, 0.08);
-    engineCarrier2.frequency.setTargetAtTime(carrierFreq*1.012, audioCtx.currentTime, 0.08);
+    engineCarrier2.frequency.setTargetAtTime(carrierFreq*1.015, audioCtx.currentTime, 0.08);
 
-    engineRumble.frequency.setTargetAtTime(35 + ratio*42, audioCtx.currentTime, 0.1);
-    engineRumbleGain.gain.setTargetAtTime(state.muted ? 0 : (0.22+cappedRatio*0.22), audioCtx.currentTime, 0.1);
+    engineRumble.frequency.setTargetAtTime(28 + ratio*34, audioCtx.currentTime, 0.1);
+    engineRumbleGain.gain.setTargetAtTime(state.muted ? 0 : (0.26+cappedRatio*0.22), audioCtx.currentTime, 0.1);
 
-    engineFilter.frequency.setTargetAtTime(500 + ratio*3000, audioCtx.currentTime, 0.08);
+    engineFilter.frequency.setTargetAtTime(420 + ratio*2200, audioCtx.currentTime, 0.08);
 
-    engineNoiseGain.gain.setTargetAtTime(state.muted ? 0 : (cappedRatio*0.06), audioCtx.currentTime, 0.1);
-    engineNoiseFilter.frequency.setTargetAtTime(600 + ratio*2500, audioCtx.currentTime, 0.1);
+    engineNoiseGain.gain.setTargetAtTime(state.muted ? 0 : (cappedRatio*0.05), audioCtx.currentTime, 0.1);
+    engineNoiseFilter.frequency.setTargetAtTime(550 + ratio*2000, audioCtx.currentTime, 0.1);
   }
   function stopEngineAudio(){
     [engineCarrier, engineCarrier2, engineMod, engineRumble, engineNoiseSrc].forEach((n) => {
@@ -520,6 +536,7 @@
     });
     engineCarrier=engineCarrier2=engineMod=engineRumble=engineNoiseSrc=null;
     engineGain=engineFilter=engineBaseGain=engineModGain=engineRumbleGain=engineNoiseGain=engineNoiseFilter=null;
+    engineDistortion=null;
   }
   function playTapBlip(){
     if(state.muted) return;
@@ -967,19 +984,21 @@
     const metersToUnits = ROAD_LENGTH / 100;
     const impactZ = wallMesh.position.z + 0.55;
     const startZ = impactZ + 15 * metersToUnits;
-    const midZ = (startZ + impactZ) / 2;
 
-    // wide FOV and a generous perpendicular distance so the whole 15m approach stays
-    // in frame even on a narrow portrait screen; the camera also tracks the car each
-    // frame below, so exact distances aren't fragile the way a single fixed lookAt was
-    camera.fov = 62; camera.updateProjectionMatrix();
-    const sideCamPos = new THREE.Vector3(13, 2.6, midZ);
-    camera.position.copy(sideCamPos);
-    camera.lookAt(0, 0.8, midZ);
-    shakeBase.copy(sideCamPos);
+    // Rigid follow-cam: the camera sits at a FIXED offset relative to the car's
+    // current position, every single frame, and always looks straight at it.
+    // This guarantees the car is centered in frame regardless of exact track
+    // geometry -- and critically, the X offset (5.6) is kept well inside the
+    // side barrier corridor (walls sit at +/-7.2) so the wall can never block
+    // the shot the way the old fixed-position camera at x=13 did.
+    const FOLLOW_OFFSET = new THREE.Vector3(5.6, 2.1, 3.2);
+    camera.fov = 60; camera.updateProjectionMatrix();
 
     rebuildActiveCar();
     carGroup.position.set(0, 0, startZ);
+    camera.position.set(carGroup.position.x + FOLLOW_OFFSET.x, carGroup.position.y + FOLLOW_OFFSET.y, carGroup.position.z + FOLLOW_OFFSET.z);
+    camera.lookAt(carGroup.position.x, carGroup.position.y + 0.6, carGroup.position.z);
+    shakeBase.copy(camera.position);
 
     const duration = 1500;
     const t0 = performance.now();
@@ -987,10 +1006,9 @@
       const t = Math.min(1, (now - t0) / duration);
       const eased = t * t * (3 - 2 * t);
       carGroup.position.z = startZ + (impactZ - startZ) * eased;
-      // track the car every frame so it never drifts out of view regardless of exact geometry
-      if(!shakeTimeLeft){
-        camera.lookAt(carGroup.position.x, carGroup.position.y + 0.7, carGroup.position.z);
-      }
+      camera.position.set(carGroup.position.x + FOLLOW_OFFSET.x, carGroup.position.y + FOLLOW_OFFSET.y, carGroup.position.z + FOLLOW_OFFSET.z);
+      camera.lookAt(carGroup.position.x, carGroup.position.y + 0.6, carGroup.position.z);
+      shakeBase.copy(camera.position);
       if(t < 1){
         requestAnimationFrame(stepReplay);
       } else {
