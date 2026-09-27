@@ -88,6 +88,11 @@
   .speed-val .kmh{font-size:14px; color:var(--muted); margin-left:4px;}
   .speed-bar{width:70vw; max-width:420px; height:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
   .speed-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--cyan),var(--magenta)); transition:width 0.08s linear;}
+  .odo-panel{
+    background:#0a0d12; border:1px solid #3a4250; border-radius:5px; padding:4px 10px;
+    font-family:'Courier New',monospace; font-weight:700; font-size:13px; letter-spacing:2px;
+    color:#c9d3dc; box-shadow:inset 0 0 6px rgba(0,0,0,0.6);
+  }
 
   .tap-hint{
     position:absolute; bottom:40px; left:50%; transform:translateX(-50%);
@@ -214,6 +219,7 @@
   <div class="speed-wrap">
     <div class="speed-val"><span id="speedVal">0</span><span class="kmh">km/h</span></div>
     <div class="speed-bar"><div class="speed-fill" id="speedFill"></div></div>
+    <div class="odo-panel">ODO <span id="odoVal">000000</span> KM</div>
   </div>
   <div class="tap-hint" id="tapHint">TAP RAPIDLY TO ACCELERATE</div>
 </div>
@@ -316,7 +322,7 @@
   let state = {
     money: 0, ownedCarIds: ["beater"], activeCarId: "beater",
     bestSpeed: 0, totalCrashes: 0, totalEarned: 0, milestoneIndex: 0,
-    carStats: {},
+    carStats: {}, odometerKm: 0,
     muted: false, hapticsEnabled: true,
   };
   function getCarStats(carId){
@@ -631,6 +637,93 @@
     return new THREE.CanvasTexture(c);
   }
 
+  // Real crash-test-facility touches: high-speed cameras on tripods bracketing the
+  // impact zone, an observation/control booth with a glass window, and hazard
+  // signage on the barriers -- the recognizable furniture of an actual proving ground.
+  function makeSignTexture(text1, text2){
+    const c = document.createElement("canvas"); c.width = 256; c.height = 160;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#f4c430"; ctx.fillRect(0,0,256,160);
+    ctx.strokeStyle = "#1c1f22"; ctx.lineWidth = 8; ctx.strokeRect(4,4,248,152);
+    ctx.fillStyle = "#1c1f22";
+    ctx.beginPath(); ctx.moveTo(128,20); ctx.lineTo(158,72); ctx.lineTo(98,72); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f4c430"; ctx.font = "bold 34px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("!", 128, 63);
+    ctx.fillStyle = "#1c1f22"; ctx.font = "bold 22px sans-serif";
+    ctx.fillText(text1, 128, 108);
+    ctx.font = "bold 16px sans-serif";
+    ctx.fillText(text2, 128, 134);
+    return new THREE.CanvasTexture(c);
+  }
+  function buildHighSpeedCamera(x, z, rotY){
+    const group = new THREE.Group();
+    const legMat = new THREE.MeshStandardMaterial({color:0x2a2d31, metalness:0.5, roughness:0.5});
+    const bodyMat = new THREE.MeshStandardMaterial({color:0x17181b, metalness:0.6, roughness:0.35});
+    const lensMat = new THREE.MeshStandardMaterial({color:0x0c2a3a, metalness:0.9, roughness:0.1});
+    [[-0.28,-0.28],[0.28,-0.28],[0,0.32]].forEach((leg) => {
+      const legMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,1.5,6), legMat);
+      legMesh.position.set(leg[0], 0.75, leg[1]);
+      legMesh.rotation.x = leg[1] !== 0.32 ? 0.22 * Math.sign(-leg[1]) : -0.28;
+      legMesh.rotation.z = leg[0] !== 0 ? 0.22 * Math.sign(leg[0]) : 0;
+      group.add(legMesh);
+    });
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.12,10), legMat);
+    hub.position.set(0, 1.5, 0); group.add(hub);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.22,0.5), bodyMat);
+    body.position.set(0, 1.62, 0.05); group.add(body);
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.22,12), lensMat);
+    lens.rotation.x = Math.PI/2; lens.position.set(0, 1.62, 0.36); group.add(lens);
+    group.position.set(x, 0, z); group.rotation.y = rotY;
+    return group;
+  }
+  function buildObservationBooth(x, z){
+    const group = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({color:0xd7dbe0, metalness:0.1, roughness:0.7});
+    const glassMat = new THREE.MeshStandardMaterial({color:0x8fd0ea, metalness:0.3, roughness:0.05, transparent:true, opacity:0.45});
+    const frameMat = new THREE.MeshStandardMaterial({color:0x2a2d31, metalness:0.5, roughness:0.4});
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.4, 0.2), wallMat);
+    back.position.set(0, 1.2, -0.5); group.add(back);
+    const side = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.4, 2.6), wallMat);
+    side.position.set(-1.5, 1.2, 0.8); group.add(side);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.15, 2.8), wallMat);
+    roof.position.set(0, 2.45, 0.6); group.add(roof);
+    const window1 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.3, 0.08), glassMat);
+    window1.position.set(0, 1.3, 0.75); group.add(window1);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.68, 1.38, 0.1), frameMat);
+    frame.position.set(0, 1.3, 0.7); group.add(frame);
+    window1.position.z = 0.76;
+    group.position.set(x, 0, z);
+    group.castShadow = true;
+    return group;
+  }
+  function buildLabDetails(){
+    // high-speed cameras bracketing the impact zone
+    scene.add(buildHighSpeedCamera(-4.8, WALL_NEAR_Z + 2.5, 0.5));
+    scene.add(buildHighSpeedCamera(4.8, WALL_NEAR_Z + 2.5, -0.5));
+    scene.add(buildHighSpeedCamera(-3.2, WALL_NEAR_Z - 1.5, 0.9));
+
+    // observation/control booth off to one side, watching the impact zone
+    scene.add(buildObservationBooth(6.3, WALL_NEAR_Z + 6));
+
+    // hazard signage mounted on the barrier walls
+    const signMat1 = new THREE.MeshStandardMaterial({map: makeSignTexture("IMPACT TEST", "ZONE AHEAD")});
+    const sign1 = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.9), signMat1);
+    sign1.position.set(-7.15, 2.4, WALL_NEAR_Z + 8); sign1.rotation.y = Math.PI/2;
+    scene.add(sign1);
+    const signMat2 = new THREE.MeshStandardMaterial({map: makeSignTexture("AUTHORIZED", "PERSONNEL ONLY")});
+    const sign2 = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.9), signMat2);
+    sign2.position.set(7.15, 2.4, 6); sign2.rotation.y = -Math.PI/2;
+    scene.add(sign2);
+
+    // cable conduits running along the barrier bases, common in real test facilities
+    const conduitMat = new THREE.MeshStandardMaterial({color:0x1c1f22, metalness:0.3, roughness:0.6});
+    [-6.9, 6.9].forEach((x) => {
+      const conduit = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 130), conduitMat);
+      conduit.position.set(x, 0.65, -44);
+      scene.add(conduit);
+    });
+  }
+
   function initScene(){
     const canvas = document.getElementById("gameCanvas");
     renderer = new THREE.WebGLRenderer({canvas, antialias:true});
@@ -699,6 +792,8 @@
     wallMesh.position.set(0, 3, WALL_FAR_Z);
     wallMesh.castShadow = true; wallMesh.receiveShadow = true;
     scene.add(wallMesh);
+
+    buildLabDetails();
 
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth/window.innerHeight;
@@ -813,8 +908,11 @@
     const car = getCar(state.activeCarId);
     carGroup = buildCarMesh(car);
     carGroup.position.set(0, 0, 2.4);
+    carGroup.rotation.y = Math.PI; // face the wall nose-first, not backing in
     scene.add(carGroup);
   }
+  const CAR_FRONT_OVERHANG = 2.11; // world-relative Z offset of the front bumper face after the 180deg rotation above
+  const WALL_HALF_DEPTH = 0.6;
 
   // ---------- physics/game state ----------
   let speed = 0, distanceRemaining = 100, running = false, crashed = false, uiBlocked = false;
@@ -862,44 +960,81 @@
     return Math.max(1, Math.round(base * variance));
   }
 
-  function deformCar(ratio){
+  function deformCar(ratio, impactOrigin){
     if(!carGroup) return;
     carGroup.scale.set(1 + ratio*0.08, 1 - ratio*0.12, 1 - ratio*0.35);
     carGroup.rotation.z = (Math.random()-0.5) * ratio * 0.25;
     carGroup.rotation.x = ratio * 0.08;
-    if(carGroup.userData.frontBumper) carGroup.userData.frontBumper.material.color.set(0x1a1a1a);
     if(carGroup.userData.windshield){
       carGroup.userData.windshield.material.opacity = 0.15;
       carGroup.userData.windshield.material.color.set(0xffffff);
     }
+    // detach the front bumper as an actual flying piece of wreckage on harder hits
+    if(ratio > 0.4 && carGroup.userData.frontBumper && scene){
+      const bumper = carGroup.userData.frontBumper;
+      const worldPos = new THREE.Vector3();
+      bumper.getWorldPosition(worldPos);
+      carGroup.remove(bumper);
+      bumper.position.copy(worldPos);
+      bumper.material = bumper.material.clone();
+      bumper.material.color.set(0x161616);
+      scene.add(bumper);
+      const kickAngle = Math.random()*Math.PI*2;
+      const kickSpeed = 2.2 + ratio*3.2;
+      flyingParts.push({
+        mesh: bumper, life: 2.2, maxLife: 2.2,
+        vel: new THREE.Vector3(Math.cos(kickAngle)*kickSpeed*0.4, 2.5+Math.random()*2, Math.sin(kickAngle)*kickSpeed*0.4 + kickSpeed*0.6),
+        angVel: new THREE.Vector3((Math.random()-0.5)*8, (Math.random()-0.5)*8, (Math.random()-0.5)*8),
+      });
+      carGroup.userData.frontBumper = null;
+    } else if(carGroup.userData.frontBumper){
+      carGroup.userData.frontBumper.material.color.set(0x1a1a1a);
+    }
+  }
+  function carFrontZ(){ return carGroup ? carGroup.position.z - CAR_FRONT_OVERHANG : 0; }
+  let flyingParts = [];
+  function updateFlyingParts(dt){
+    for(let i=flyingParts.length-1;i>=0;i--){
+      const p = flyingParts[i];
+      p.life -= dt;
+      if(p.life <= 0){ scene.remove(p.mesh); flyingParts.splice(i,1); continue; }
+      p.vel.y -= 6.0*dt;
+      p.mesh.position.addScaledVector(p.vel, dt);
+      p.mesh.rotation.x += p.angVel.x*dt;
+      p.mesh.rotation.y += p.angVel.y*dt;
+      p.mesh.rotation.z += p.angVel.z*dt;
+      if(p.mesh.position.y < 0.06){ p.mesh.position.y = 0.06; p.vel.y *= -0.35; p.vel.x *= 0.75; p.vel.z *= 0.75; }
+    }
   }
 
   let particles = [];
-  function spawnDebris(ratio){
-    const count = Math.round(14 + ratio*26);
+  function spawnDebris(ratio, originZ, originY){
+    const oz = originZ != null ? originZ : 2.0;
+    const oy = originY != null ? originY : 0.6;
+    const count = Math.round(22 + ratio*44);
     for(let i=0;i<count;i++){
       const kind = Math.random();
       let mesh, life, isSmoke = false;
-      if(kind < 0.4){
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.05,4,4), new THREE.MeshBasicMaterial({color:0xffb347}));
-        life = 0.4 + Math.random()*0.3;
-      } else if(kind < 0.65){
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.02), new THREE.MeshBasicMaterial({color:0xcfefff, transparent:true, opacity:0.9}));
-        life = 0.6 + Math.random()*0.4;
-      } else if(kind < 0.85){
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.08,0.1), new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+      if(kind < 0.35){
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.06,4,4), new THREE.MeshBasicMaterial({color:0xffb347}));
+        life = 0.45 + Math.random()*0.35;
+      } else if(kind < 0.6){
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.025), new THREE.MeshBasicMaterial({color:0xdff4ff, transparent:true, opacity:0.95}));
         life = 0.7 + Math.random()*0.5;
+      } else if(kind < 0.85){
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.17,0.11,0.14), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.4, roughness:0.6}));
+        life = 0.9 + Math.random()*0.7;
       } else {
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.18,6,6), new THREE.MeshBasicMaterial({color:0x777d84, transparent:true, opacity:0.5}));
-        life = 1.2 + Math.random()*0.8; isSmoke = true;
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22,6,6), new THREE.MeshBasicMaterial({color:0x777d84, transparent:true, opacity:0.55}));
+        life = 1.3 + Math.random()*0.9; isSmoke = true;
       }
-      mesh.position.set((Math.random()-0.5)*0.6, 0.6 + Math.random()*0.5, 2.0);
+      mesh.position.set((Math.random()-0.5)*0.8, oy + Math.random()*0.5, oz + (Math.random()-0.5)*0.3);
       scene.add(mesh);
       const angle = Math.random()*Math.PI*2;
-      const speed3 = isSmoke ? 0.6 : 1.6 + ratio*2.2;
+      const speed3 = isSmoke ? 0.7 : 2.4 + ratio*3.6;
       particles.push({
         mesh, life, maxLife: life, isSmoke,
-        vel: new THREE.Vector3(Math.cos(angle)*speed3*0.5, (isSmoke?0.8:1.2)+Math.random()*1.5, Math.sin(angle)*speed3*0.5 + 1.5),
+        vel: new THREE.Vector3(Math.cos(angle)*speed3*0.5, (isSmoke?0.9:1.8)+Math.random()*2.2, Math.sin(angle)*speed3*0.5 + speed3*0.5),
       });
     }
   }
@@ -982,7 +1117,7 @@
     inReplay = true;
     const ratio = damagePercent / 100;
     const metersToUnits = ROAD_LENGTH / 100;
-    const impactZ = wallMesh.position.z + 0.55;
+    const impactZ = wallMesh.position.z + WALL_HALF_DEPTH + CAR_FRONT_OVERHANG; // front bumper now touches the wall face precisely
     const startZ = impactZ + 15 * metersToUnits;
 
     // Rigid follow-cam: the camera sits at a FIXED offset relative to the car's
@@ -1016,7 +1151,7 @@
         triggerShake(0.15 + ratio*0.3);
         flashScreen();
         deformCar(ratio);
-        spawnDebris(ratio);
+        spawnDebris(ratio, carFrontZ(), 0.6);
         setTimeout(() => {
           inReplay = false;
           restoreChaseCamera();
@@ -1041,7 +1176,7 @@
     triggerShake(0.25 + ratio*0.5);
     flashScreen();
     deformCar(ratio);
-    spawnDebris(ratio);
+    spawnDebris(ratio, carFrontZ(), 0.6);
 
     const reward = computeReward(impactSpeed, car);
     state.money += reward; state.totalEarned += reward; state.totalCrashes += 1;
@@ -1089,12 +1224,17 @@
     if(speed > 0.5){
       if(!running){ running = true; document.getElementById("tapHint").style.opacity = "0"; startEngineAudio(); }
       distanceRemaining -= speed * dt * DISTANCE_FACTOR;
+      state.odometerKm += (speed * dt) / 3600; // speed is km/h, dt in seconds
       if(distanceRemaining <= 0){ distanceRemaining = 0; triggerCrash(); }
     }
     const ratio = Math.min(1, speed / car.maxSpeed);
     camera.fov = 68 + ratio*10;
     camera.updateProjectionMatrix();
-    renderDistance(); renderSpeed();
+    renderDistance(); renderSpeed(); renderOdometer();
+  }
+  function renderOdometer(){
+    const el = document.getElementById("odoVal");
+    if(el) el.textContent = Math.floor(state.odometerKm).toString().padStart(6, "0");
   }
 
   // ---------- garage ----------
@@ -1240,6 +1380,7 @@
     lastTime = now;
     updatePhysics(dt);
     updateParticles(dt);
+    updateFlyingParts(dt);
     updateCameraShake(dt);
     updateEngineAudio();
     if(wallMesh) wallMesh.position.z = wallZForDistance(distanceRemaining);
@@ -1252,7 +1393,7 @@
     try{
       initScene();
       rebuildActiveCar();
-      renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar();
+      renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar(); renderOdometer();
       requestAnimationFrame(animate);
       if(profile.name){
         applyProfileUi();
