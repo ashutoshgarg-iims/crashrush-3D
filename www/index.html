@@ -30,6 +30,41 @@
   }
   .brand{font-weight:800; letter-spacing:1px; font-size:16px; text-transform:uppercase; display:flex; align-items:center; gap:6px;}
   .brand .accent{color:var(--cyan);}
+  .brand-row{display:flex; align-items:center; gap:9px;}
+  .avatar-badge{
+    width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--magenta),var(--cyan));
+    display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800;
+    border:2px solid var(--cyan); flex-shrink:0;
+  }
+  .who{display:flex; flex-direction:column; line-height:1.15;}
+  .who-name{font-weight:800; font-size:13px; letter-spacing:0.3px;}
+  .who-rank{font-size:10px; color:var(--cyan); font-weight:700; text-transform:uppercase;}
+  .milestone-bar{padding:0 16px 6px 16px; pointer-events:auto;}
+  .mb-head{display:flex; justify-content:space-between; font-size:10px; letter-spacing:0.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px;}
+  .mb-track{height:8px; border-radius:10px; background:var(--card); border:1px solid var(--line); overflow:hidden;}
+  .mb-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--magenta),var(--cyan)); transition:width 0.3s ease;}
+  .rc-damage{color:var(--orange); font-weight:800; font-size:13px; margin-top:4px;}
+  .avatar-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;}
+  .avatar-choice{font-size:26px; background:var(--card); border:2px solid var(--line); border-radius:10px; padding:8px 0; cursor:pointer; text-align:center;}
+  .avatar-choice.selected{border-color:var(--cyan); background:rgba(41,229,255,0.12);}
+  .hof-card{
+    display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line);
+    border-radius:10px; padding:11px; margin-bottom:9px;
+  }
+  .hof-swatch{width:40px; height:28px; border-radius:6px; flex-shrink:0;}
+  .hof-info{flex:1;}
+  .hof-name{font-weight:800; font-size:13px;}
+  .hof-sub{font-size:11px; color:var(--muted); margin-top:3px; line-height:1.5;}
+  .hof-title{
+    font-size:10px; font-weight:800; text-transform:uppercase; padding:4px 9px; border-radius:12px;
+    background:rgba(41,229,255,0.15); color:var(--cyan); border:1px solid var(--cyan); white-space:nowrap;
+  }
+  .hof-title.locked{background:transparent; color:var(--muted); border-color:var(--line);}
+  .rc-btn{
+    background:linear-gradient(90deg,var(--cyan),var(--magenta)); border:none; border-radius:10px;
+    padding:12px 22px; font-weight:800; text-transform:uppercase; letter-spacing:1px; font-size:14px;
+    color:#04121a; cursor:pointer; width:100%;
+  }
   .money{
     background:var(--card); border:1px solid var(--good); border-radius:20px; padding:7px 14px;
     font-weight:700; color:var(--good); font-variant-numeric:tabular-nums; font-size:15px;
@@ -127,14 +162,50 @@
 <div class="crash-flash" id="crashFlash"></div>
 <div class="toast-layer" id="toastLayer"></div>
 
+<div class="modal-overlay" id="profileModal" style="display:none;">
+  <div class="modal-card">
+    <h2 style="justify-content:center;">💥 Crash Rush 3D</h2>
+    <div style="text-align:center; color:var(--muted); font-size:13px; margin-bottom:14px;">Create your driver profile</div>
+    <div class="avatar-grid" id="avatarGrid"></div>
+    <input id="nameInput" maxlength="16" placeholder="Driver name, e.g. RexCrusher" autocomplete="off" style="width:100%; padding:12px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:15px; margin-bottom:14px; outline:none;">
+    <button class="rc-btn" id="startBtn">Start Crashing</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aboutModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Why this game exists <span class="close-x" id="aboutCloseBtn">✕</span></h2>
+    <div style="text-align:left; line-height:1.6; font-size:14px; color:var(--text);">
+      Sometimes you just want to watch something go fast and smash into a wall.
+      Crash Rush 3D is built for a few minutes of pure, satisfying destruction —
+      tap fast, hit hard, watch the damage.<br><br>
+      Collect money from every crash, work your way up to faster, flashier cars,
+      and see how far past "totaled" you can push it.<br><br>
+      <b>No skill ceiling, no losing — just tap, crash, repeat.</b>
+    </div>
+  </div>
+</div>
+
 <div class="hud">
   <div class="topbar">
-    <div class="brand">💥 CRASH <span class="accent">RUSH</span></div>
+    <div class="brand-row">
+      <div class="avatar-badge" id="avatarDisplay">?</div>
+      <div class="who">
+        <span class="who-name" id="playerName">—</span>
+        <span class="who-rank" id="playerRank">Rookie Driver</span>
+      </div>
+    </div>
     <div class="top-actions">
       <div class="money" id="moneyDisplay">$0</div>
       <button class="icon-btn" id="garageBtn" title="Garage">🚗</button>
+      <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
+      <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
     </div>
+  </div>
+  <div class="milestone-bar">
+    <div class="mb-head"><span id="mbLabel">Next milestone</span><span id="mbCount">0 / 1</span></div>
+    <div class="mb-track"><div class="mb-fill" id="mbFill"></div></div>
   </div>
   <div class="stats-strip" id="statsStrip"></div>
   <div class="center-hud">
@@ -152,6 +223,7 @@
 <div class="result-card" id="resultCard">
   <div class="rc-title">💥 Crashed!</div>
   <div class="rc-speed" id="rcSpeed">Impact speed: 0 km/h</div>
+  <div class="rc-damage" id="rcDamage">Damage: 0%</div>
   <div class="rc-money" id="rcMoney">+$0</div>
   <button class="rc-btn" id="rcBtn">Drive Again</button>
 </div>
@@ -163,11 +235,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="hallOfFameModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Hall of Fame <span class="close-x" id="hofCloseBtn">✕</span></h2>
+    <div id="hofList"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="crashSettingsModal" style="display:none;">
   <div class="modal-card">
     <h2>Settings <span class="close-x" id="settingsCloseX">✕</span></h2>
+    <div class="settings-row"><span>Driver name</span><input id="settingsNameInput" style="width:130px; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--text);" maxlength="16"></div>
     <div class="settings-row"><span>Sound</span><button class="icon-btn" id="sfxToggleBtn">🔊</button></div>
     <div class="settings-row"><span>Vibration</span><button class="icon-btn" id="hapticsToggleBtn">📳</button></div>
+    <div class="settings-row"><span>Test vibration</span><button class="icon-btn" id="testVibrateBtn">👆</button></div>
+    <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
   </div>
 </div>
@@ -205,16 +287,46 @@
   ];
   function getCar(id){ for(let i=0;i<CARS.length;i++){ if(CARS[i].id === id) return CARS[i]; } return CARS[0]; }
 
+  const AVATARS = ["🏎️", "🚀", "🔥", "💀", "⚡", "🤖", "😈", "🏁"];
+
+  const MILESTONES = [
+    {count:1,   title:"First Impact",        rank:"Rookie Driver",       bonus:100},
+    {count:5,   title:"Wall Whisperer",      rank:"Crash Cadet",         bonus:500},
+    {count:15,  title:"Metal Bender",        rank:"Demolition Pro",      bonus:2500},
+    {count:30,  title:"Total Wreckage",      rank:"Crash Veteran",       bonus:8000},
+    {count:60,  title:"Junkyard Legend",     rank:"Wreck Master",        bonus:30000},
+    {count:100, title:"Apocalypse Driver",   rank:"Crash Baron",         bonus:120000},
+    {count:200, title:"God of Destruction",  rank:"Legend of the Strip", bonus:600000},
+  ];
+  function getMilestone(i){
+    if(i < MILESTONES.length) return MILESTONES[i];
+    const base = MILESTONES[MILESTONES.length-1];
+    const extra = i - (MILESTONES.length-1);
+    return {
+      count: Math.round(base.count * Math.pow(1.6, extra)),
+      title: "Carnage Tier " + (extra+1),
+      rank: "Strip Legend " + (extra+1),
+      bonus: Math.round(base.bonus * Math.pow(2.1, extra)),
+    };
+  }
+
+  let profile = {name:null, avatar:AVATARS[0], streak:0, lastLogin:null};
+
   // ---------- state ----------
   let state = {
     money: 0, ownedCarIds: ["beater"], activeCarId: "beater",
-    bestSpeed: 0, totalCrashes: 0, totalEarned: 0,
+    bestSpeed: 0, totalCrashes: 0, totalEarned: 0, milestoneIndex: 0,
+    carStats: {},
     muted: false, hapticsEnabled: true,
   };
+  function getCarStats(carId){
+    if(!state.carStats[carId]) state.carStats[carId] = {crashes:0, bestSpeed:0, bestDamage:0};
+    return state.carStats[carId];
+  }
 
   // ---------- persistence (localStorage first — reliable inside the packaged app) ----------
   async function save(){
-    const payload = JSON.stringify(state);
+    const payload = JSON.stringify({profile, state});
     try{ localStorage.setItem("crashrush-save-v1", payload); }catch(e){ logError("save failed: " + e.message); }
     try{ if(window.storage) await window.storage.set("crashrush-save-v1", payload, false); }catch(e){}
   }
@@ -225,11 +337,66 @@
     if(raw){
       try{
         const loaded = JSON.parse(raw);
-        state = Object.assign(state, loaded);
-        if(!state.ownedCarIds || !state.ownedCarIds.length) state.ownedCarIds = ["beater"];
-        if(!state.activeCarId) state.activeCarId = "beater";
+        if(loaded.profile) profile = Object.assign(profile, loaded.profile);
+        if(loaded.state){
+          state = Object.assign(state, loaded.state);
+          if(!state.ownedCarIds || !state.ownedCarIds.length) state.ownedCarIds = ["beater"];
+          if(!state.activeCarId) state.activeCarId = "beater";
+          if(!state.carStats) state.carStats = {};
+          if(state.milestoneIndex == null) state.milestoneIndex = 0;
+        }
       }catch(e){ logError("load parse failed: " + e.message); }
     }
+  }
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function initialsOrAvatar(){ return profile.avatar || "?"; }
+  function applyProfileUi(){
+    document.getElementById("playerName").textContent = profile.name || "—";
+    document.getElementById("avatarDisplay").textContent = initialsOrAvatar();
+    document.getElementById("playerRank").textContent = currentRank();
+  }
+  function handleDailyLogin(){
+    const today = todayStr();
+    const isFirstEver = !profile.lastLogin;
+    if(isFirstEver){
+      const welcome = 500;
+      state.money += welcome; state.totalEarned += welcome;
+      setTimeout(() => showToast("🎁 Welcome bonus!", "+" + fmt(welcome) + " to get you started"), 500);
+      profile.streak = 1; profile.lastLogin = today;
+    } else if(profile.lastLogin !== today){
+      const yest = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+      profile.streak = (profile.lastLogin === yest) ? (profile.streak||0) + 1 : 1;
+      profile.lastLogin = today;
+      const bonus = 100 * profile.streak;
+      state.money += bonus; state.totalEarned += bonus;
+      setTimeout(() => showToast("🔥 Day " + profile.streak + " streak!", "+" + fmt(bonus) + " login bonus"), 500);
+    }
+  }
+  function renderHallOfFame(){
+    const el = document.getElementById("hofList"); el.innerHTML = "";
+    CARS.forEach((car) => {
+      const owned = state.ownedCarIds.indexOf(car.id) !== -1;
+      const cs = state.carStats[car.id];
+      const swatchColor = "#" + car.color.toString(16).padStart(6,"0");
+      let title = "Not driven yet", locked = true;
+      if(cs && cs.crashes > 0){
+        locked = false;
+        if(cs.bestDamage >= 100) title = "Total Destruction";
+        else if(cs.bestDamage >= 80) title = "Wreckage Master";
+        else if(cs.bestDamage >= 50) title = "Certified Crasher";
+        else title = "First Dent";
+      }
+      const div = document.createElement("div");
+      div.className = "hof-card";
+      const statsLine = cs && cs.crashes > 0
+        ? cs.crashes + " crashes · best " + Math.round(cs.bestSpeed) + " km/h · best damage " + Math.round(cs.bestDamage) + "%"
+        : (owned ? "Owned, not crashed yet" : "Not yet owned");
+      div.innerHTML =
+        '<div class="hof-swatch" style="background:' + swatchColor + '"></div>' +
+        '<div class="hof-info"><div class="hof-name">' + car.name + '</div><div class="hof-sub">' + statsLine + '</div></div>' +
+        '<div class="hof-title' + (locked ? " locked" : "") + '">' + title + '</div>';
+      el.appendChild(div);
+    });
   }
 
   // ---------- haptics ----------
@@ -624,12 +791,46 @@
     document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
   }
 
+  function computeDamagePercent(impactSpeed){
+    let dmg;
+    if(impactSpeed <= 200){ dmg = 50; }
+    else { dmg = 50 + ((impactSpeed-200)/40) * 3; }
+    return Math.max(0, Math.min(100, dmg));
+  }
+
+  function checkMilestones(){
+    while(true){
+      const m = getMilestone(state.milestoneIndex);
+      if(state.totalCrashes >= m.count){
+        state.money += m.bonus; state.totalEarned += m.bonus;
+        playCoinSound();
+        showToast("🏆 " + m.title, "Rank up: " + m.rank + " · +" + fmt(m.bonus));
+        state.milestoneIndex += 1;
+      } else break;
+    }
+  }
+  function currentRank(){
+    let rank = "Rookie Driver";
+    for(let i=0;i<state.milestoneIndex;i++){ rank = getMilestone(i).rank; }
+    return rank;
+  }
+  function renderMilestoneBar(){
+    const next = getMilestone(state.milestoneIndex);
+    const prevCount = state.milestoneIndex > 0 ? getMilestone(state.milestoneIndex-1).count : 0;
+    document.getElementById("mbLabel").textContent = "Next: " + next.title + " (+" + fmt(next.bonus) + ")";
+    document.getElementById("mbCount").textContent = state.totalCrashes + " / " + next.count;
+    const pct = Math.min(100, ((state.totalCrashes-prevCount)/(next.count-prevCount))*100);
+    document.getElementById("mbFill").style.width = pct + "%";
+    document.getElementById("playerRank").textContent = currentRank();
+  }
+
   function triggerCrash(){
     if(crashed) return;
     crashed = true; running = false;
     const car = getCar(state.activeCarId);
     const impactSpeed = speed;
-    const ratio = Math.min(1, impactSpeed / car.maxSpeed);
+    const damagePercent = computeDamagePercent(impactSpeed);
+    const ratio = damagePercent / 100;
 
     stopEngineAudio();
     playCrashSound(ratio);
@@ -642,9 +843,17 @@
     const reward = computeReward(impactSpeed, car);
     state.money += reward; state.totalEarned += reward; state.totalCrashes += 1;
     if(impactSpeed > state.bestSpeed) state.bestSpeed = impactSpeed;
-    save(); renderMoney(); renderStats();
+
+    const cs = getCarStats(state.activeCarId);
+    cs.crashes += 1;
+    if(impactSpeed > cs.bestSpeed) cs.bestSpeed = impactSpeed;
+    if(damagePercent > cs.bestDamage) cs.bestDamage = damagePercent;
+
+    checkMilestones();
+    save(); renderMoney(); renderStats(); renderMilestoneBar();
 
     document.getElementById("rcSpeed").textContent = "Impact speed: " + Math.round(impactSpeed) + " km/h";
+    document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "%";
     document.getElementById("rcMoney").textContent = "+" + fmt(reward);
     setTimeout(() => { document.getElementById("resultCard").classList.add("show"); }, 350);
   }
@@ -660,8 +869,7 @@
 
   function onTap(){
     if(crashed || uiBlocked) return;
-    const car = getCar(state.activeCarId);
-    speed = Math.min(car.maxSpeed, speed + TAP_BOOST);
+    if(speed <= 0.5){ speed = 50; } else { speed += 20; }
     playTapBlip();
     vibrate(6);
   }
@@ -670,13 +878,12 @@
     if(crashed) return;
     speed = Math.max(0, speed - DECAY_PER_SEC*dt);
     const car = getCar(state.activeCarId);
-    speed = Math.min(speed, car.maxSpeed);
     if(speed > 0.5){
       if(!running){ running = true; document.getElementById("tapHint").style.opacity = "0"; startEngineAudio(); }
       distanceRemaining -= speed * dt * DISTANCE_FACTOR;
       if(distanceRemaining <= 0){ distanceRemaining = 0; triggerCrash(); }
     }
-    const ratio = speed / car.maxSpeed;
+    const ratio = Math.min(1, speed / car.maxSpeed);
     camera.fov = 68 + ratio*10;
     camera.updateProjectionMatrix();
     renderDistance(); renderSpeed();
@@ -761,6 +968,61 @@
     try{ localStorage.removeItem("crashrush-save-v1"); }catch(e){}
     location.reload();
   });
+  document.getElementById("hallOfFameBtn").addEventListener("click", () => {
+    renderHallOfFame();
+    document.getElementById("hallOfFameModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("hofCloseBtn").addEventListener("click", () => {
+    document.getElementById("hallOfFameModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("aboutBtn").addEventListener("click", () => {
+    document.getElementById("aboutModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("aboutCloseBtn").addEventListener("click", () => {
+    document.getElementById("aboutModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("settingsSaveBtn").addEventListener("click", () => {
+    const val = document.getElementById("settingsNameInput").value.trim();
+    if(val) profile.name = val;
+    applyProfileUi(); save();
+    document.getElementById("crashSettingsModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("testVibrateBtn").addEventListener("click", () => {
+    const wasEnabled = state.hapticsEnabled;
+    state.hapticsEnabled = true;
+    vibrate([25,30,25,30,50]);
+    state.hapticsEnabled = wasEnabled;
+    const usingNative = !!nativeHaptics();
+    showToast(usingNative ? "📳 Sent via native Haptics plugin" : "📳 Sent via browser vibrate API",
+      usingNative ? "Felt nothing? Check your device's own vibration setting." : "Felt nothing? Check AndroidManifest for the VIBRATE permission.");
+  });
+
+  let selectedAvatar = AVATARS[0];
+  function renderAvatarGrid(){
+    const grid = document.getElementById("avatarGrid"); grid.innerHTML = "";
+    AVATARS.forEach((a) => {
+      const d = document.createElement("div");
+      d.className = "avatar-choice" + (a === selectedAvatar ? " selected" : "");
+      d.textContent = a;
+      d.onclick = () => { selectedAvatar = a; renderAvatarGrid(); };
+      grid.appendChild(d);
+    });
+  }
+  document.getElementById("startBtn").addEventListener("click", () => {
+    const val = document.getElementById("nameInput").value.trim();
+    if(!val) return;
+    profile.name = val; profile.avatar = selectedAvatar;
+    document.getElementById("profileModal").style.display = "none";
+    handleDailyLogin();
+    applyProfileUi(); renderMoney(); renderStats(); renderMilestoneBar(); renderGarage();
+    save();
+  });
+  document.getElementById("nameInput").addEventListener("keydown", (e) => { if(e.key === "Enter") document.getElementById("startBtn").click(); });
 
   // ---------- main loop ----------
   let lastTime = performance.now();
@@ -782,8 +1044,19 @@
     try{
       initScene();
       rebuildActiveCar();
-      renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage();
+      renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar();
       requestAnimationFrame(animate);
+      if(profile.name){
+        applyProfileUi();
+        handleDailyLogin();
+        renderMoney(); renderMilestoneBar();
+        save();
+      } else {
+        selectedAvatar = AVATARS[0];
+        renderAvatarGrid();
+        document.getElementById("profileModal").style.display = "flex";
+        setTimeout(() => document.getElementById("nameInput").focus(), 200);
+      }
     }catch(e){
       logError("init failed: " + e.message);
       document.body.innerHTML = "<div style='padding:40px;text-align:center;color:#fff;font-family:sans-serif;'>This device couldn't start 3D graphics. Try updating your System WebView app from the Play Store.</div>";
