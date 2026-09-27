@@ -50,6 +50,37 @@
   .zone-row{display:flex; justify-content:space-between; padding:2px 0;}
   .hud .topbar, .hud .milestone-bar, .hud .stats-strip{transition:opacity 0.15s ease;}
   .hud.impact-hide .topbar, .hud.impact-hide .milestone-bar, .hud.impact-hide .stats-strip{opacity:0; pointer-events:none;}
+
+  .vignette-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:14; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.75) 100%);
+  }
+  .vignette-overlay.pulse{animation:vignettePulse 0.9s ease-out;}
+  @keyframes vignettePulse{
+    0%{opacity:0;} 15%{opacity:1;} 100%{opacity:0;}
+  }
+
+  .zen-released{
+    position:fixed; top:45%; left:50%; transform:translate(-50%,-50%) scale(0.9);
+    font-size:32px; font-weight:300; letter-spacing:6px; text-transform:uppercase;
+    color:var(--cyan); opacity:0; pointer-events:none; z-index:16;
+    transition:opacity 0.5s ease, transform 0.5s ease;
+  }
+  .zen-released.show{opacity:0.9; transform:translate(-50%,-50%) scale(1);}
+
+  body.zen-mode .hud .topbar, body.zen-mode .hud .milestone-bar, body.zen-mode .hud .stats-strip,
+  body.zen-mode .odo-panel, body.zen-mode .stress-wrap, body.zen-mode .speed-val{
+    display:none !important;
+  }
+
+  .settings-block{padding:10px 0; border-bottom:1px solid var(--line);}
+  .settings-block-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
+  .level-grid{display:flex; flex-wrap:wrap; gap:6px;}
+  .level-choice{
+    background:var(--card); border:1px solid var(--line); border-radius:8px; padding:7px 10px;
+    font-size:12px; color:var(--text); cursor:pointer;
+  }
+  .level-choice.active{border-color:var(--cyan); color:var(--cyan); background:rgba(41,229,255,0.1);}
   .rage-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
   .rage-choice{
     background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 8px;
@@ -106,6 +137,10 @@
     font-family:'Courier New',monospace; font-weight:700; font-size:13px; letter-spacing:2px;
     color:#c9d3dc; box-shadow:inset 0 0 6px rgba(0,0,0,0.6);
   }
+  .stress-wrap{width:70vw; max-width:420px; margin-top:2px;}
+  .stress-label{font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:3px; display:flex; justify-content:space-between;}
+  .stress-track{height:6px; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .stress-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--orange),var(--danger));}
 
   .tap-hint{
     position:absolute; bottom:40px; left:50%; transform:translateX(-50%);
@@ -178,6 +213,8 @@
 
 <canvas id="gameCanvas"></canvas>
 <div class="crash-flash" id="crashFlash"></div>
+<div class="vignette-overlay" id="vignetteOverlay"></div>
+<div class="zen-released" id="zenReleased">Released</div>
 <div class="toast-layer" id="toastLayer"></div>
 
 <div class="modal-overlay" id="profileModal" style="display:none;">
@@ -234,6 +271,10 @@
     <div class="speed-val"><span id="speedVal">0</span><span class="kmh">km/h</span></div>
     <div class="speed-bar"><div class="speed-fill" id="speedFill"></div></div>
     <div class="odo-panel">ODO <span id="odoVal">000000</span> KM</div>
+    <div class="stress-wrap">
+      <div class="stress-label">STRESS <span id="stressPct">0%</span></div>
+      <div class="stress-track"><div class="stress-fill" id="stressFill"></div></div>
+    </div>
   </div>
   <div class="tap-hint" id="tapHint">TAP RAPIDLY TO ACCELERATE</div>
 </div>
@@ -270,8 +311,18 @@
     <h2>Settings <span class="close-x" id="settingsCloseX">✕</span></h2>
     <div class="settings-row"><span>Driver name</span><input id="settingsNameInput" style="width:130px; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--text);" maxlength="16"></div>
     <div class="settings-row"><span>Sound</span><button class="icon-btn" id="sfxToggleBtn">🔊</button></div>
+    <div class="settings-row"><span>Ambient facility sound</span><button class="icon-btn" id="ambientToggleBtn">🔊</button></div>
     <div class="settings-row"><span>Vibration</span><button class="icon-btn" id="hapticsToggleBtn">📳</button></div>
     <div class="settings-row"><span>Test vibration</span><button class="icon-btn" id="testVibrateBtn">👆</button></div>
+    <div class="settings-block">
+      <div class="settings-block-label">Haptic intensity</div>
+      <div class="level-grid" id="hapticLevelGrid"></div>
+    </div>
+    <div class="settings-block">
+      <div class="settings-block-label">Crash sound profile</div>
+      <div class="level-grid" id="crashProfileGrid"></div>
+    </div>
+    <div class="settings-row"><span>🧘 Zen Mode</span><button class="icon-btn" id="zenToggleBtn">🚫</button></div>
     <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
   </div>
@@ -360,6 +411,7 @@
     money: 0, ownedCarIds: ["beater"], activeCarId: "beater",
     bestSpeed: 0, totalCrashes: 0, totalEarned: 0, milestoneIndex: 0,
     carStats: {}, odometerKm: 0, bestImpactScore: 0, rageTheme: "default",
+    hapticIntensity: "normal", crashProfile: "metal", zenMode: false, ambientOn: true,
     muted: false, hapticsEnabled: true,
   };
   function getCarStats(carId){
@@ -447,19 +499,25 @@
     try{ if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) return window.Capacitor.Plugins.Haptics; }catch(e){}
     return null;
   }
+  const HAPTIC_LEVELS = {off:0, soft:0.55, normal:1, strong:1.5, cinematic:2.2};
   function vibrate(pattern){
     if(!state.hapticsEnabled) return;
+    const mult = HAPTIC_LEVELS[state.hapticIntensity] != null ? HAPTIC_LEVELS[state.hapticIntensity] : 1;
+    if(mult <= 0) return;
     try{
       const H = nativeHaptics();
       if(H){
         // the plugin's ImpactStyle enum is uppercase ("HEAVY"/"MEDIUM"/"LIGHT") -- lowercase
         // silently fails to match on the native side, which was the actual bug
-        const total = Array.isArray(pattern) ? pattern.reduce((a,b)=>a+b,0) : pattern;
+        const total = (Array.isArray(pattern) ? pattern.reduce((a,b)=>a+b,0) : pattern) * mult;
         const styleVal = total > 40 ? "HEAVY" : total > 15 ? "MEDIUM" : "LIGHT";
         H.impact({style: styleVal}).catch((e) => logError("haptics impact rejected: " + e.message));
         return;
       }
-      if(navigator.vibrate) navigator.vibrate(pattern);
+      if(navigator.vibrate){
+        const scaled = Array.isArray(pattern) ? pattern.map((v) => Math.max(1, Math.round(v*mult))) : Math.max(1, Math.round(pattern*mult));
+        navigator.vibrate(scaled);
+      }
     }catch(e){ logError("vibrate failed: " + e.message); }
   }
 
@@ -469,6 +527,37 @@
     if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return null; } }
     if(audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
+  }
+  // Continuous facility ambience -- fluorescent hum, distant machinery, room tone.
+  // Independent of the tap-reactive engine sound; runs the whole session at very
+  // low gain so the lab feels inhabited rather than dead silent between crashes.
+  let ambientGain = null, ambientHum = null, ambientHum2 = null, ambientMachineryTimer = null;
+  function startAmbient(){
+    if(!state.ambientOn || ambientGain) return;
+    const ctx = ensureAudio(); if(!ctx) return;
+    ambientGain = ctx.createGain(); ambientGain.gain.value = state.muted ? 0 : 0.035;
+    ambientGain.connect(ctx.destination);
+    ambientHum = ctx.createOscillator(); ambientHum.type = "sine"; ambientHum.frequency.value = 60;
+    ambientHum2 = ctx.createOscillator(); ambientHum2.type = "sine"; ambientHum2.frequency.value = 120;
+    const humGain = ctx.createGain(); humGain.gain.value = 0.5;
+    ambientHum.connect(humGain); ambientHum2.connect(humGain); humGain.connect(ambientGain);
+    ambientHum.start(); ambientHum2.start();
+    function scheduleMachinery(){
+      const ctx2 = ensureAudio(); if(!ctx2 || !ambientGain) return;
+      const o = ctx2.createOscillator(); const g = ctx2.createGain();
+      o.type = "sine"; o.frequency.value = 55 + Math.random()*20;
+      g.gain.setValueAtTime(0.001, ctx2.currentTime);
+      g.gain.linearRampToValueAtTime(0.4, ctx2.currentTime+1.2);
+      g.gain.linearRampToValueAtTime(0.001, ctx2.currentTime+3.5);
+      o.connect(g).connect(ambientGain); o.start(); o.stop(ctx2.currentTime+3.6);
+      ambientMachineryTimer = setTimeout(scheduleMachinery, 6000 + Math.random()*9000);
+    }
+    ambientMachineryTimer = setTimeout(scheduleMachinery, 3000 + Math.random()*4000);
+  }
+  function stopAmbient(){
+    if(ambientMachineryTimer){ clearTimeout(ambientMachineryTimer); ambientMachineryTimer = null; }
+    [ambientHum, ambientHum2].forEach((n) => { if(n){ try{ n.stop(); }catch(e){} } });
+    ambientHum = ambientHum2 = null; ambientGain = null;
   }
   function noiseBurst(duration, freqStart, freqEnd, gainAmt){
     if(state.muted) return;
@@ -608,58 +697,82 @@
   // (glass) -> THUD (main hit) -> crunch (metal folding) -> settle (debris rattle)
   // -> silence -> tiny settling ticks. The silence gap after is deliberate --
   // that's the ASMR payoff moment, not a mixing gap.
-  function playCrashSound(intensity){
+  // ASMR Crash Profiles: same 5-stage skeleton (creak/crack/thud/crunch/settle),
+  // retuned per profile for a genuinely different sensory character -- Glass
+  // leans into the shatter, Soft mutes everything sharp, Destruction pushes
+  // every stage louder and messier, Zen replaces the whole sequence with chimes.
+  function playCrashSound(intensity, profileOverride){
+    const p = profileOverride || state.crashProfile || "metal";
+    if(p === "zen"){ playZenChime(intensity); return; }
     if(state.muted) return;
     const ctx = ensureAudio(); if(!ctx) return;
+    const isGlass = p === "glass", isSoft = p === "soft", isDestruction = p === "destruction";
 
-    // 1. creak -- a brief rising groan right at first contact
-    const creak = ctx.createOscillator(); const creakG = ctx.createGain();
-    creak.type = "sawtooth"; creak.frequency.setValueAtTime(140, ctx.currentTime);
-    creak.frequency.linearRampToValueAtTime(210, ctx.currentTime+0.09);
-    creakG.gain.setValueAtTime(0.001, ctx.currentTime);
-    creakG.gain.linearRampToValueAtTime(0.09+intensity*0.05, ctx.currentTime+0.04);
-    creakG.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.11);
-    creak.connect(creakG).connect(ctx.destination); creak.start(); creak.stop(ctx.currentTime+0.12);
+    if(!isSoft){
+      const creak = ctx.createOscillator(); const creakG = ctx.createGain();
+      creak.type = "sawtooth";
+      creak.frequency.setValueAtTime(isGlass ? 200 : 140, ctx.currentTime);
+      creak.frequency.linearRampToValueAtTime(isGlass ? 280 : 210, ctx.currentTime+0.09);
+      creakG.gain.setValueAtTime(0.001, ctx.currentTime);
+      creakG.gain.linearRampToValueAtTime((0.09+intensity*0.05) * (isDestruction ? 1.3 : 1), ctx.currentTime+0.04);
+      creakG.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.11);
+      creak.connect(creakG).connect(ctx.destination); creak.start(); creak.stop(ctx.currentTime+0.12);
+    }
 
-    // 2. crack -- glass, slightly after the creak
     setTimeout(() => {
-      noiseBurst(0.16, 4200, 1900, 0.16 + intensity*0.1);
+      const crackGain = isGlass ? 0.28+intensity*0.18 : isSoft ? 0.04 : 0.16+intensity*0.1;
+      noiseBurst(isGlass ? 0.28 : 0.16, isSoft ? 1200 : 4200, isSoft ? 400 : 1900, crackGain);
       const ctx2 = ensureAudio(); if(!ctx2 || state.muted) return;
-      [3600,4400,2900].forEach((f,i) => {
+      const tones = isGlass ? [3600,4400,2900,5200,3100,4800] : isSoft ? [] : [3600,4400,2900];
+      tones.forEach((f,i) => {
         const so = ctx2.createOscillator(); const sg = ctx2.createGain();
         so.type = "sine"; so.frequency.value = f;
-        const t0 = ctx2.currentTime + i*0.025;
-        sg.gain.setValueAtTime(0.05, t0);
-        sg.gain.exponentialRampToValueAtTime(0.001, t0+0.13);
-        so.connect(sg).connect(ctx2.destination); so.start(t0); so.stop(t0+0.14);
+        const t0 = ctx2.currentTime + i*(isGlass ? 0.035 : 0.025);
+        sg.gain.setValueAtTime(isGlass ? 0.07 : 0.05, t0);
+        sg.gain.exponentialRampToValueAtTime(0.001, t0+(isGlass ? 0.22 : 0.13));
+        so.connect(sg).connect(ctx2.destination); so.start(t0); so.stop(t0+(isGlass ? 0.24 : 0.14));
       });
     }, 60);
 
-    // 3. THUD -- the main impact, the loudest single moment
     setTimeout(() => {
-      noiseBurst(0.4, 1900, 85, 0.55 + intensity*0.32);
+      const thudGain = isSoft ? 0.22+intensity*0.12 : (0.55+intensity*0.32) * (isDestruction ? 1.25 : isGlass ? 0.6 : 1);
+      noiseBurst(isSoft ? 0.5 : 0.4, isSoft ? 400 : 1900, isSoft ? 60 : 85, thudGain);
       const ctx3 = ensureAudio(); if(!ctx3 || state.muted) return;
       const o = ctx3.createOscillator(); const g = ctx3.createGain();
-      o.type = "triangle"; o.frequency.setValueAtTime(150, ctx3.currentTime);
-      o.frequency.exponentialRampToValueAtTime(45, ctx3.currentTime+0.28);
-      g.gain.setValueAtTime(0.3+intensity*0.15, ctx3.currentTime);
+      o.type = isSoft ? "sine" : "triangle";
+      o.frequency.setValueAtTime(isSoft ? 90 : 150, ctx3.currentTime);
+      o.frequency.exponentialRampToValueAtTime(isSoft ? 40 : 45, ctx3.currentTime+0.28);
+      g.gain.setValueAtTime((0.3+intensity*0.15) * (isSoft ? 0.6 : 1), ctx3.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001, ctx3.currentTime+0.32);
       o.connect(g).connect(ctx3.destination); o.start(); o.stop(ctx3.currentTime+0.35);
+      if(isDestruction) noiseBurst(0.5, 2600, 120, 0.4+intensity*0.25);
     }, 130);
 
-    // 4. crunch -- metal folding, a beat after the thud
-    setTimeout(() => {
-      noiseBurst(0.32, 700, 55, 0.35 + intensity*0.2);
-    }, 240);
-
-    // 5. settle -- a few irregular small rattles as debris drops
-    for(let i=0;i<3;i++){
-      setTimeout(() => { noiseBurst(0.08, 900+Math.random()*400, 200, 0.08*intensity); }, 420 + i*(110+Math.random()*80));
+    if(!isGlass && !isSoft){
+      setTimeout(() => { noiseBurst(0.32, 700, 55, 0.35 + intensity*0.2); }, 240);
+    } else if(isSoft){
+      setTimeout(() => { noiseBurst(0.4, 300, 50, 0.12+intensity*0.06); }, 240);
     }
-    // then deliberate silence -- no sound scheduled between ~700ms and ~1400ms --
-    // followed by two tiny final settling ticks
+
+    const settleGain = isSoft ? 0.03 : 0.08;
+    for(let i=0;i<3;i++){
+      setTimeout(() => { noiseBurst(0.08, (isGlass?1400:900)+Math.random()*400, isSoft?150:200, settleGain*intensity); }, 420 + i*(110+Math.random()*80));
+    }
     setTimeout(() => { noiseBurst(0.05, 500, 150, 0.03); }, 1450);
     setTimeout(() => { noiseBurst(0.05, 400, 120, 0.02); }, 1650);
+  }
+  function playZenChime(intensity){
+    if(state.muted) return;
+    const ctx = ensureAudio(); if(!ctx) return;
+    [523.25, 659.25, 784.0, 1046.5].forEach((f,i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      const t0 = ctx.currentTime + i*0.09;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.05+intensity*0.02, t0+0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+1.6);
+      o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0+1.7);
+    });
   }
 
   // ---------- three.js scene ----------
@@ -877,6 +990,7 @@
     scene.add(wallMesh);
 
     buildLabDetails();
+    initParticlePools();
 
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth/window.innerHeight;
@@ -1090,6 +1204,33 @@
     }
   }
 
+  // Particle object pooling: pre-allocate a fixed set of meshes per kind once,
+  // reuse them for every crash instead of create+dispose per particle. This
+  // matters more with every build we add on top of this one -- without it,
+  // the biggest ASMR moments (the heaviest crashes) are exactly the moments
+  // most likely to stutter on a mid-range phone.
+  let sparkPool = [], glassPool = [], debrisPool = [], smokePool = [];
+  function makePool(count, geometry, material){
+    const pool = [];
+    for(let i=0;i<count;i++){
+      const mesh = new THREE.Mesh(geometry, material.clone());
+      mesh.visible = false;
+      scene.add(mesh);
+      pool.push({mesh, active:false, life:0, maxLife:0, isSmoke:false, vel:new THREE.Vector3()});
+    }
+    return pool;
+  }
+  function initParticlePools(){
+    sparkPool = makePool(50, new THREE.SphereGeometry(0.06,4,4), new THREE.MeshBasicMaterial({color:0xffb347}));
+    glassPool = makePool(50, new THREE.BoxGeometry(0.1,0.1,0.025), new THREE.MeshBasicMaterial({color:0xdff4ff, transparent:true, opacity:0.95}));
+    debrisPool = makePool(35, new THREE.BoxGeometry(0.17,0.11,0.14), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.4, roughness:0.6}));
+    smokePool = makePool(25, new THREE.SphereGeometry(0.22,6,6), new THREE.MeshBasicMaterial({color:0x777d84, transparent:true, opacity:0.55}));
+  }
+  function getFromPool(pool){
+    for(let i=0;i<pool.length;i++){ if(!pool[i].active) return pool[i]; }
+    return pool[Math.floor(Math.random()*pool.length)]; // pool exhausted (very heavy crash) -- reuse an active one early
+  }
+
   let particles = [];
   function spawnDebris(ratio, originZ, originY){
     const oz = originZ != null ? originZ : 2.0;
@@ -1097,35 +1238,28 @@
     const count = Math.round(22 + ratio*44);
     for(let i=0;i<count;i++){
       const kind = Math.random();
-      let mesh, life, isSmoke = false;
-      if(kind < 0.35){
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.06,4,4), new THREE.MeshBasicMaterial({color:0xffb347}));
-        life = 0.45 + Math.random()*0.35;
-      } else if(kind < 0.6){
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.025), new THREE.MeshBasicMaterial({color:0xdff4ff, transparent:true, opacity:0.95}));
-        life = 0.7 + Math.random()*0.5;
-      } else if(kind < 0.85){
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.17,0.11,0.14), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.4, roughness:0.6}));
-        life = 0.9 + Math.random()*0.7;
-      } else {
-        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22,6,6), new THREE.MeshBasicMaterial({color:0x777d84, transparent:true, opacity:0.55}));
-        life = 1.3 + Math.random()*0.9; isSmoke = true;
-      }
-      mesh.position.set((Math.random()-0.5)*0.8, oy + Math.random()*0.5, oz + (Math.random()-0.5)*0.3);
-      scene.add(mesh);
+      let pool, life, isSmoke = false;
+      if(kind < 0.35){ pool = sparkPool; life = 0.45 + Math.random()*0.35; }
+      else if(kind < 0.6){ pool = glassPool; life = 0.7 + Math.random()*0.5; }
+      else if(kind < 0.85){ pool = debrisPool; life = 0.9 + Math.random()*0.7; }
+      else { pool = smokePool; life = 1.3 + Math.random()*0.9; isSmoke = true; }
+      const slot = getFromPool(pool);
+      slot.active = true; slot.life = life; slot.maxLife = life; slot.isSmoke = isSmoke;
+      slot.mesh.visible = true;
+      slot.mesh.scale.set(1,1,1);
+      slot.mesh.material.opacity = isSmoke ? 0.55 : 0.95;
+      slot.mesh.position.set((Math.random()-0.5)*0.8, oy + Math.random()*0.5, oz + (Math.random()-0.5)*0.3);
       const angle = Math.random()*Math.PI*2;
       const speed3 = isSmoke ? 0.7 : 2.4 + ratio*3.6;
-      particles.push({
-        mesh, life, maxLife: life, isSmoke,
-        vel: new THREE.Vector3(Math.cos(angle)*speed3*0.5, (isSmoke?0.9:1.8)+Math.random()*2.2, Math.sin(angle)*speed3*0.5 + speed3*0.5),
-      });
+      slot.vel.set(Math.cos(angle)*speed3*0.5, (isSmoke?0.9:1.8)+Math.random()*2.2, Math.sin(angle)*speed3*0.5 + speed3*0.5);
+      particles.push(slot);
     }
   }
   function updateParticles(dt){
     for(let i=particles.length-1;i>=0;i--){
       const p = particles[i];
       p.life -= dt;
-      if(p.life <= 0){ scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); particles.splice(i,1); continue; }
+      if(p.life <= 0){ p.active = false; p.mesh.visible = false; particles.splice(i,1); continue; }
       p.vel.y -= (p.isSmoke ? 0.4 : 4.2) * dt;
       p.mesh.position.addScaledVector(p.vel, dt);
       if(p.mesh.position.y < 0.05 && !p.isSmoke){ p.mesh.position.y = 0.05; p.vel.y *= -0.3; p.vel.x *= 0.8; p.vel.z *= 0.8; }
@@ -1152,6 +1286,11 @@
     el.style.transition = "none"; el.style.opacity = "0.85";
     requestAnimationFrame(() => { el.style.transition = "opacity 0.4s ease"; el.style.opacity = "0"; });
     document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
+  }
+  function pulseVignette(){
+    const el = document.getElementById("vignetteOverlay");
+    if(!el) return;
+    el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse");
   }
 
   // Progressive damage tiers -- visibly distinct stages instead of a flat 50% floor.
@@ -1298,6 +1437,7 @@
     stopEngineAudio();
     document.querySelector(".hud").classList.add("impact-hide");
     vibrate(4); // tiny sharp tick at the freeze moment
+    releaseStress();
 
     // impact freeze -- a brief hard stop before anything cascades, so the hit
     // registers as a real moment of tension rather than one continuous blur
@@ -1308,6 +1448,7 @@
       flashScreen();
       deformCar(ratio);
       spawnDebris(ratio, carFrontZ(), 0.6);
+      if(ratio > 0.7) pulseVignette();
       [420,530,610].forEach((d) => setTimeout(() => vibrate(8), d)); // tiny settling pulses matching the audio
     }, 120);
 
@@ -1344,9 +1485,20 @@
     setTimeout(() => {
       playCrashReplay(impactSpeed, damagePercent, () => {
         document.querySelector(".hud").classList.remove("impact-hide");
-        document.getElementById("resultCard").classList.add("show");
+        if(state.zenMode){
+          showZenReleased();
+          setTimeout(() => { resetRun(); }, 1400);
+        } else {
+          document.getElementById("resultCard").classList.add("show");
+        }
       });
     }, 640);
+  }
+  function showZenReleased(){
+    const el = document.getElementById("zenReleased");
+    if(!el) return;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1300);
   }
 
   function resetRun(){
@@ -1357,12 +1509,16 @@
     restoreChaseCamera();
     renderDistance(); renderSpeed();
   }
+  function applyZenModeUi(){
+    document.body.classList.toggle("zen-mode", !!state.zenMode);
+  }
 
   function onTap(){
     if(crashed || uiBlocked || inReplay) return;
     if(speed <= 0.5){ speed = 50; } else { speed += 20; }
     playTapBlip();
     vibrate(6);
+    startAmbient();
   }
 
   function updatePhysics(dt){
@@ -1378,7 +1534,21 @@
     const ratio = Math.min(1, speed / car.maxSpeed);
     camera.fov = 68 + ratio*10;
     camera.updateProjectionMatrix();
-    renderDistance(); renderSpeed(); renderOdometer();
+    renderDistance(); renderSpeed(); renderOdometer(); renderStress(ratio);
+  }
+  function renderStress(ratio){
+    const fill = document.getElementById("stressFill");
+    const pct = document.getElementById("stressPct");
+    if(!fill) return;
+    fill.style.width = (ratio*100) + "%";
+    if(pct) pct.textContent = Math.round(ratio*100) + "%";
+  }
+  function releaseStress(){
+    const fill = document.getElementById("stressFill");
+    if(!fill) return;
+    fill.style.transition = "width 0.65s cubic-bezier(.2,.9,.3,1)";
+    fill.style.width = "0%";
+    setTimeout(() => { fill.style.transition = ""; }, 700);
   }
   function renderOdometer(){
     const el = document.getElementById("odoVal");
@@ -1442,6 +1612,9 @@
   document.getElementById("crashSettingsBtn").addEventListener("click", () => {
     document.getElementById("sfxToggleBtn").textContent = state.muted ? "🔇" : "🔊";
     document.getElementById("hapticsToggleBtn").textContent = state.hapticsEnabled ? "📳" : "🚫";
+    document.getElementById("ambientToggleBtn").textContent = state.ambientOn ? "🔊" : "🔇";
+    document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
+    renderHapticLevels(); renderCrashProfiles();
     document.getElementById("crashSettingsModal").style.display = "flex";
     uiBlocked = true;
   });
@@ -1518,6 +1691,47 @@
     document.getElementById("crashSettingsModal").style.display = "none";
     uiBlocked = false;
   });
+  function renderHapticLevels(){
+    const el = document.getElementById("hapticLevelGrid"); if(!el) return;
+    el.innerHTML = "";
+    Object.keys(HAPTIC_LEVELS).forEach((lvl) => {
+      const b = document.createElement("button");
+      b.className = "level-choice" + (state.hapticIntensity === lvl ? " active" : "");
+      b.textContent = lvl.charAt(0).toUpperCase() + lvl.slice(1);
+      b.onclick = () => { state.hapticIntensity = lvl; renderHapticLevels(); vibrate(20); save(); };
+      el.appendChild(b);
+    });
+  }
+  const CRASH_PROFILES = [
+    {id:"metal", emoji:"🔩", label:"Metal"},
+    {id:"glass", emoji:"🪟", label:"Glass"},
+    {id:"soft", emoji:"🧸", label:"Soft"},
+    {id:"destruction", emoji:"💥", label:"Destruction"},
+    {id:"zen", emoji:"🧘", label:"Zen"},
+  ];
+  function renderCrashProfiles(){
+    const el = document.getElementById("crashProfileGrid"); if(!el) return;
+    el.innerHTML = "";
+    CRASH_PROFILES.forEach((p) => {
+      const b = document.createElement("button");
+      b.className = "level-choice" + (state.crashProfile === p.id ? " active" : "");
+      b.textContent = p.emoji + " " + p.label;
+      b.onclick = () => { state.crashProfile = p.id; renderCrashProfiles(); playCrashSound(0.5, p.id); save(); };
+      el.appendChild(b);
+    });
+  }
+  document.getElementById("ambientToggleBtn").addEventListener("click", () => {
+    state.ambientOn = !state.ambientOn;
+    document.getElementById("ambientToggleBtn").textContent = state.ambientOn ? "🔊" : "🔇";
+    if(state.ambientOn) startAmbient(); else stopAmbient();
+    save();
+  });
+  document.getElementById("zenToggleBtn").addEventListener("click", () => {
+    state.zenMode = !state.zenMode;
+    document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
+    applyZenModeUi();
+    save();
+  });
   document.getElementById("testVibrateBtn").addEventListener("click", () => {
     const wasEnabled = state.hapticsEnabled;
     state.hapticsEnabled = true;
@@ -1572,6 +1786,7 @@
       initScene();
       rebuildActiveCar();
       renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar(); renderOdometer();
+      applyZenModeUi();
       requestAnimationFrame(animate);
       if(profile.name){
         applyProfileUi();
