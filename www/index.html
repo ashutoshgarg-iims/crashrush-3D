@@ -572,6 +572,7 @@
   const WALL_FAR_Z = -2 - ROAD_LENGTH;
   const WALL_NEAR_Z = -3.4;
   const camBasePos = new THREE.Vector3();
+  const CHASE_LOOK_TARGET = new THREE.Vector3(0, 1.0, -20);
   const shakeBase = new THREE.Vector3(); // the camera "rest" position shake jitters around -- updates when camera is deliberately repositioned (e.g. during replay)
 
   // Crash-test-lab floor: light concrete with a black/yellow hazard grid and
@@ -953,17 +954,29 @@
 
   // ---------- cinematic side-view replay ----------
   let inReplay = false;
+  function restoreChaseCamera(){
+    camera.position.copy(camBasePos);
+    camera.lookAt(CHASE_LOOK_TARGET);
+    shakeBase.copy(camBasePos);
+    camera.fov = 68; camera.updateProjectionMatrix();
+  }
+
   function playCrashReplay(impactSpeed, damagePercent, onComplete){
     inReplay = true;
     const ratio = damagePercent / 100;
     const metersToUnits = ROAD_LENGTH / 100;
     const impactZ = wallMesh.position.z + 0.55;
     const startZ = impactZ + 15 * metersToUnits;
+    const midZ = (startZ + impactZ) / 2;
 
-    camera.fov = 55; camera.updateProjectionMatrix();
-    camera.position.set(9.5, 2.0, impactZ + 3.5);
-    camera.lookAt(0, 1.0, impactZ);
-    shakeBase.copy(camera.position);
+    // wide FOV and a generous perpendicular distance so the whole 15m approach stays
+    // in frame even on a narrow portrait screen; the camera also tracks the car each
+    // frame below, so exact distances aren't fragile the way a single fixed lookAt was
+    camera.fov = 62; camera.updateProjectionMatrix();
+    const sideCamPos = new THREE.Vector3(13, 2.6, midZ);
+    camera.position.copy(sideCamPos);
+    camera.lookAt(0, 0.8, midZ);
+    shakeBase.copy(sideCamPos);
 
     rebuildActiveCar();
     carGroup.position.set(0, 0, startZ);
@@ -974,6 +987,10 @@
       const t = Math.min(1, (now - t0) / duration);
       const eased = t * t * (3 - 2 * t);
       carGroup.position.z = startZ + (impactZ - startZ) * eased;
+      // track the car every frame so it never drifts out of view regardless of exact geometry
+      if(!shakeTimeLeft){
+        camera.lookAt(carGroup.position.x, carGroup.position.y + 0.7, carGroup.position.z);
+      }
       if(t < 1){
         requestAnimationFrame(stepReplay);
       } else {
@@ -984,9 +1001,7 @@
         spawnDebris(ratio);
         setTimeout(() => {
           inReplay = false;
-          camera.position.copy(camBasePos);
-          shakeBase.copy(camBasePos);
-          camera.fov = 68; camera.updateProjectionMatrix();
+          restoreChaseCamera();
           onComplete();
         }, 1500);
       }
@@ -1038,9 +1053,7 @@
     document.getElementById("resultCard").classList.remove("show");
     document.getElementById("tapHint").style.opacity = "1";
     rebuildActiveCar();
-    camera.position.copy(camBasePos);
-    shakeBase.copy(camBasePos);
-    camera.fov = 68; camera.updateProjectionMatrix();
+    restoreChaseCamera();
     renderDistance(); renderSpeed();
   }
 
