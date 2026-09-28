@@ -1004,6 +1004,22 @@
     g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.15);
     o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.15);
   }
+  // Achievement / milestone / secret-unlock fanfare: a short rising arpeggio.
+  // (This was called by the Phase 3 achievement code but never defined in this game --
+  // that ReferenceError is what froze the game after the first crash.)
+  function playMilestone(){
+    if(state.muted) return;
+    const ctx = ensureAudio(); if(!ctx) return;
+    [523, 659, 784, 1046].forEach((f,i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      const t0 = ctx.currentTime + i*0.08;
+      g.gain.setValueAtTime(0.001, t0);
+      g.gain.exponentialRampToValueAtTime(0.16, t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0+0.25);
+      o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0+0.3);
+    });
+  }
   // Layered impact sequence, not one burst: creak (structural stress) -> crack
   // (glass) -> THUD (main hit) -> crunch (metal folding) -> settle (debris rattle)
   // -> silence -> tiny settling ticks. The silence gap after is deliberate --
@@ -1897,58 +1913,88 @@
     const isRecord = impactScore > state.bestImpactScore;
     if(isRecord) state.bestImpactScore = impactScore;
 
-    // Phase 3 tracking: daily best, daily/weekly challenge progress, achievements, crash history
-    if(state.dailyBestSpeed.date !== todayStr()) state.dailyBestSpeed = {date:todayStr(), speed:0};
-    if(impactSpeed > state.dailyBestSpeed.speed) state.dailyBestSpeed.speed = impactSpeed;
-    updateDailyChallengeProgress(impactSpeed, damagePercent);
-    updateWeeklyChallengeProgress(impactSpeed);
-    state.profileCrashCounts[state.crashProfile] = (state.profileCrashCounts[state.crashProfile]||0) + 1;
-    state.materialCrashCounts[state.materialPack] = (state.materialCrashCounts[state.materialPack]||0) + 1;
-    if(state.rageTheme !== "default"){
-      state.officeRageCrashCount += 1;
-      state.rageThemeCounts[state.rageTheme] = (state.rageThemeCounts[state.rageTheme]||0) + 1;
-    }
-    state.crashHistory.push({carId: state.activeCarId, speed: impactSpeed, damage: damagePercent, reward: reward});
-    if(state.crashHistory.length > 15) state.crashHistory.shift();
+    // Everything below the core reward/state update is *optional* progression (challenges,
+    // achievements, unlocks, cosmetics). Each piece is isolated so that a bug in any one of
+    // them is logged and skipped instead of aborting the crash sequence -- a previous bug in
+    // exactly this area froze the game after the first hit.
     const impactPower = Math.round((impactSpeed * (car.mass||1500)/1000) * (1 + damagePercent/100));
-    if(wallMesh){
-      wallMesh.material.map = makeWallTexture(getRageTheme(state.rageTheme), getMaterialPack(state.materialPack), state.totalCrashes+1);
-      wallMesh.material.needsUpdate = true;
-    }
+    safely("daily-best", () => {
+      if(state.dailyBestSpeed.date !== todayStr()) state.dailyBestSpeed = {date:todayStr(), speed:0};
+      if(impactSpeed > state.dailyBestSpeed.speed) state.dailyBestSpeed.speed = impactSpeed;
+    });
+    safely("daily-challenge", () => updateDailyChallengeProgress(impactSpeed, damagePercent));
+    safely("weekly-challenge", () => updateWeeklyChallengeProgress(impactSpeed));
+    safely("crash-counters", () => {
+      state.profileCrashCounts[state.crashProfile] = (state.profileCrashCounts[state.crashProfile]||0) + 1;
+      state.materialCrashCounts[state.materialPack] = (state.materialCrashCounts[state.materialPack]||0) + 1;
+      if(state.rageTheme !== "default"){
+        state.officeRageCrashCount += 1;
+        state.rageThemeCounts[state.rageTheme] = (state.rageThemeCounts[state.rageTheme]||0) + 1;
+      }
+    });
+    safely("crash-history", () => {
+      state.crashHistory.push({carId: state.activeCarId, speed: impactSpeed, damage: damagePercent, reward: reward});
+      if(state.crashHistory.length > 15) state.crashHistory.shift();
+    });
+    safely("wall-damage", () => {
+      if(wallMesh){
+        wallMesh.material.map = makeWallTexture(getRageTheme(state.rageTheme), getMaterialPack(state.materialPack), state.totalCrashes+1);
+        wallMesh.material.needsUpdate = true;
+      }
+    });
+    safely("milestones", checkMilestones);
+    safely("achievements", checkAchievements);
+    safely("secret-cars", checkSecretCarUnlocks);
+    safely("save+render", () => { save(); renderMoney(); renderStats(); renderMilestoneBar(); });
 
-    checkMilestones();
-    checkAchievements();
-    checkSecretCarUnlocks();
-    save(); renderMoney(); renderStats(); renderMilestoneBar();
+    safely("result-card", () => {
+      document.getElementById("rcSpeed").textContent = "Impact speed: " + Math.round(impactSpeed) + " km/h";
+      document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "% \u2014 " + damageTierLabel(damagePercent);
+      document.getElementById("rcMoney").textContent = "+" + fmt(reward);
+      document.getElementById("rcScore").textContent = "Impact Score " + impactScore.toLocaleString() + (isRecord ? "  🏆 NEW RECORD" : "");
+      document.getElementById("rcPower").textContent = "Impact Power " + impactPower.toLocaleString() + " kN" + (isFridayToday() ? "  🎉 Friday Bonus" : "");
+      renderDamageZones(damagePercent);
+      const rageTheme = getRageTheme(state.rageTheme);
+      const captionEl = document.getElementById("rcCaption");
+      if(rageTheme.id !== "default"){
+        captionEl.textContent = rageTheme.captions[Math.floor(Math.random()*rageTheme.captions.length)];
+        captionEl.style.display = "block";
+      } else {
+        captionEl.style.display = "none";
+      }
+    });
 
-    document.getElementById("rcSpeed").textContent = "Impact speed: " + Math.round(impactSpeed) + " km/h";
-    document.getElementById("rcDamage").textContent = "Damage: " + Math.round(damagePercent) + "% \u2014 " + damageTierLabel(damagePercent);
-    document.getElementById("rcMoney").textContent = "+" + fmt(reward);
-    document.getElementById("rcScore").textContent = "Impact Score " + impactScore.toLocaleString() + (isRecord ? "  🏆 NEW RECORD" : "");
-    document.getElementById("rcPower").textContent = "Impact Power " + impactPower.toLocaleString() + " kN" + (isFridayToday() ? "  🎉 Friday Bonus" : "");
-    renderDamageZones(damagePercent);
-    const rageTheme = getRageTheme(state.rageTheme);
-    const captionEl = document.getElementById("rcCaption");
-    if(rageTheme.id !== "default"){
-      captionEl.textContent = rageTheme.captions[Math.floor(Math.random()*rageTheme.captions.length)];
-      captionEl.style.display = "block";
-    } else {
-      captionEl.style.display = "none";
-    }
-
+    // What happens once the replay ends. Guarded so it can only run once, and backed by
+    // a failsafe timer below so the game can never be left stuck after a crash even if
+    // the replay itself were to fail.
+    let crashFlowDone = false;
+    const finishCrashFlow = () => {
+      if(crashFlowDone) return;
+      crashFlowDone = true;
+      inReplay = false;
+      safely("restore-camera", restoreChaseCamera);
+      document.querySelector(".hud").classList.remove("impact-hide");
+      if(sessionJustCompleted()){
+        showEndOfSession();
+      } else if(state.zenMode){
+        showZenReleased();
+        setTimeout(() => { resetRun(); }, 1400);
+      } else {
+        document.getElementById("resultCard").classList.add("show");
+      }
+    };
     setTimeout(() => {
-      playCrashReplay(impactSpeed, damagePercent, () => {
-        document.querySelector(".hud").classList.remove("impact-hide");
-        if(sessionJustCompleted()){
-          showEndOfSession();
-        } else if(state.zenMode){
-          showZenReleased();
-          setTimeout(() => { resetRun(); }, 1400);
-        } else {
-          document.getElementById("resultCard").classList.add("show");
-        }
-      });
+      try{
+        playCrashReplay(impactSpeed, damagePercent, finishCrashFlow);
+      }catch(e){
+        logError("replay failed: " + e.message);
+        finishCrashFlow();
+      }
     }, 640);
+    setTimeout(finishCrashFlow, 7000); // failsafe: replay normally completes in ~3.8s
+  }
+  function safely(label, fn){
+    try{ fn(); }catch(e){ logError(label + " failed: " + (e && e.message ? e.message : e)); }
   }
   function showZenReleased(){
     const el = document.getElementById("zenReleased");
