@@ -79,8 +79,23 @@
   .zen-released.show{opacity:0.9; transform:translate(-50%,-50%) scale(1);}
 
   body.zen-mode .hud .topbar, body.zen-mode .hud .milestone-bar, body.zen-mode .hud .stats-strip,
-  body.zen-mode .odo-panel, body.zen-mode .stress-wrap, body.zen-mode .speed-val{
+  body.zen-mode .odo-panel, body.zen-mode .stress-wrap, body.zen-mode .speed-val,
+  body.cinematic-mode .hud .topbar, body.cinematic-mode .hud .milestone-bar, body.cinematic-mode .hud .stats-strip{
     display:none !important;
+  }
+
+  .skip-link{
+    background:none; border:none; color:var(--muted); font-size:12px; text-decoration:underline;
+    width:100%; padding:10px; margin-top:6px; cursor:pointer;
+  }
+  .ad-btn{
+    width:100%; padding:11px; border:none; border-radius:8px; background:#3a63c9; color:#fff;
+    font-weight:700; text-transform:uppercase; letter-spacing:0.5px; font-size:12px; cursor:pointer; margin-top:8px;
+  }
+  .ad-btn:disabled{background:#2a3340; color:#7a7f76; cursor:not-allowed;}
+  .share-btn{
+    width:100%; padding:11px; border:1px solid var(--cyan); border-radius:8px; background:transparent; color:var(--cyan);
+    font-weight:700; text-transform:uppercase; letter-spacing:0.5px; font-size:12px; cursor:pointer; margin-top:8px;
   }
 
   .settings-block{padding:10px 0; border-bottom:1px solid var(--line);}
@@ -263,6 +278,7 @@
     <div class="avatar-grid" id="avatarGrid"></div>
     <input id="nameInput" maxlength="16" placeholder="Driver name, e.g. RexCrusher" autocomplete="off" style="width:100%; padding:12px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); font-size:15px; margin-bottom:14px; outline:none;">
     <button class="rc-btn" id="startBtn">Start Crashing</button>
+    <button class="skip-link" id="skipProfileBtn">Skip for now &rarr;</button>
   </div>
 </div>
 
@@ -296,6 +312,7 @@
       <button class="icon-btn" id="sessionBtn" title="Session mode">⏱️</button>
       <button class="icon-btn" id="dailyChallengeBtn" title="Daily challenge">📅</button>
       <button class="icon-btn" id="materialBtn" title="Material packs">🧱</button>
+      <button class="icon-btn" id="crashGalleryBtn" title="Top crashes">🎞️</button>
       <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
@@ -333,6 +350,8 @@
   <div class="rc-zones" id="rcZones"></div>
   <div class="rc-caption" id="rcCaption" style="display:none;"></div>
   <div class="rc-money" id="rcMoney">+$0</div>
+  <button class="ad-btn" id="watchAdDoubleBtn">📺 Watch Ad to Double Reward</button>
+  <button class="share-btn" id="shareCrashBtn">📤 Share Crash Card</button>
   <button class="rc-btn" id="rcBtn">Drive Again</button>
 </div>
 
@@ -375,6 +394,13 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="crashGalleryModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Top Crashes <span class="close-x" id="crashGalleryCloseBtn">✕</span></h2>
+    <div id="crashGalleryList"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="crashSettingsModal" style="display:none;">
   <div class="modal-card">
     <h2>Settings <span class="close-x" id="settingsCloseX">✕</span></h2>
@@ -397,6 +423,8 @@
     </div>
     <div class="settings-row"><span>Screen flash on impact</span><button class="icon-btn" id="screenFlashToggleBtn">☀️</button></div>
     <div class="settings-row"><span>🧘 Zen Mode</span><button class="icon-btn" id="zenToggleBtn">🚫</button></div>
+    <div class="settings-row"><span>🎬 Cinematic Mode</span><button class="icon-btn" id="cinematicToggleBtn">🚫</button></div>
+    <div class="settings-row" id="sandboxRow" style="display:none;"><span>🎨 Sandbox Mode</span><button class="icon-btn" id="sandboxToggleBtn">🚫</button></div>
     <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
   </div>
@@ -715,6 +743,7 @@
     profileCrashCounts: {}, officeRageCrashCount: 0, crashHistory: [],
     unlockedAchievements: [], materialPack: "concrete", materialCrashCounts: {},
     rageThemeCounts: {}, weeklyChallenge: null,
+    cinematicMode: false, sandboxUnlocked: false, sandboxMode: false, topCrashes: [],
   };
   function getCarStats(carId){
     if(!state.carStats[carId]) state.carStats[carId] = {crashes:0, bestSpeed:0, bestDamage:0};
@@ -1509,6 +1538,7 @@
 
   // ---------- physics/game state ----------
   let speed = 0, distanceRemaining = 100, running = false, crashed = false, uiBlocked = false;
+  let lastCrash = null;
   const DISTANCE_FACTOR = 0.1, DECAY_PER_SEC = 18, TAP_BOOST = 5;
 
   function fmt(n){
@@ -1898,6 +1928,9 @@
     const reward = computeReward(impactSpeed, car);
     state.money += reward; state.totalEarned += reward; state.totalCrashes += 1;
     if(impactSpeed > state.bestSpeed) state.bestSpeed = impactSpeed;
+    lastCrash = {carId: state.activeCarId, speed: impactSpeed, damage: damagePercent, reward: reward, adDoubled: false};
+    document.getElementById("watchAdDoubleBtn").disabled = false;
+    document.getElementById("watchAdDoubleBtn").textContent = "📺 Watch Ad to Double Reward";
     if(state.sessionMode !== "endless"){
       sessionCrashesDone += 1;
       if(impactSpeed > sessionBestSpeed) sessionBestSpeed = impactSpeed;
@@ -1945,6 +1978,17 @@
     safely("milestones", checkMilestones);
     safely("achievements", checkAchievements);
     safely("secret-cars", checkSecretCarUnlocks);
+    safely("crash-gallery", () => {
+      state.topCrashes.push({carId: state.activeCarId, speed: impactSpeed, damage: damagePercent, reward: reward, impactScore: impactScore, date: todayStr()});
+      state.topCrashes.sort((a,b) => b.impactScore - a.impactScore);
+      if(state.topCrashes.length > 10) state.topCrashes.length = 10;
+    });
+    safely("sandbox-unlock", () => {
+      if(!state.sandboxUnlocked && state.totalEarned >= 50000){
+        state.sandboxUnlocked = true;
+        showToast("🎨 Sandbox Mode unlocked!", "Find it in Settings — unlimited cars to crash.");
+      }
+    });
     safely("save+render", () => { save(); renderMoney(); renderStats(); renderMilestoneBar(); });
 
     safely("result-card", () => {
@@ -2007,12 +2051,17 @@
     crashed = false; running = false; speed = 0; distanceRemaining = 100;
     document.getElementById("resultCard").classList.remove("show");
     document.getElementById("tapHint").style.opacity = "1";
+    document.getElementById("watchAdDoubleBtn").disabled = false;
+    document.getElementById("watchAdDoubleBtn").textContent = "📺 Watch Ad to Double Reward";
     rebuildActiveCar();
     restoreChaseCamera();
     renderDistance(); renderSpeed();
   }
   function applyZenModeUi(){
     document.body.classList.toggle("zen-mode", !!state.zenMode);
+  }
+  function applyCinematicModeUi(){
+    document.body.classList.toggle("cinematic-mode", !!state.cinematicMode);
   }
 
   function onTap(){
@@ -2123,6 +2172,88 @@
   // ---------- UI wiring ----------
   document.getElementById("tapZone").addEventListener("pointerdown", onTap);
   document.getElementById("rcBtn").addEventListener("click", resetRun);
+  document.getElementById("watchAdDoubleBtn").addEventListener("click", () => {
+    if(!lastCrash || lastCrash.adDoubled) return;
+    lastCrash.adDoubled = true;
+    state.money += lastCrash.reward; state.totalEarned += lastCrash.reward;
+    document.getElementById("watchAdDoubleBtn").disabled = true;
+    document.getElementById("watchAdDoubleBtn").textContent = "✅ Doubled!";
+    showToast("📺 Reward doubled!", "+" + fmt(lastCrash.reward) + " (demo — wire real AdMob for production)");
+    renderMoney(); save();
+  });
+  document.getElementById("shareCrashBtn").addEventListener("click", shareCrashCard);
+  function shareCrashCard(){
+    if(!lastCrash) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 640; canvas.height = 800;
+    const ctx = canvas.getContext("2d");
+    const car = getCar(lastCrash.carId);
+    const grad = ctx.createLinearGradient(0,0,0,800);
+    grad.addColorStop(0, "#1a1e26"); grad.addColorStop(1, "#05070a");
+    ctx.fillStyle = grad; ctx.fillRect(0,0,640,800);
+    ctx.strokeStyle = "#29e5ff"; ctx.lineWidth = 6; ctx.strokeRect(12,12,616,776);
+    ctx.textAlign = "center"; ctx.fillStyle = "#29e5ff";
+    ctx.font = "800 34px sans-serif"; ctx.fillText("CRASH RUSH 3D", 320, 90);
+    ctx.fillStyle = "#f3f0e8"; ctx.font = "700 26px sans-serif";
+    ctx.fillText(car.name, 320, 150);
+    ctx.font = "900 90px sans-serif"; ctx.fillStyle = "#ff2e9a";
+    ctx.fillText(Math.round(lastCrash.speed) + " km/h", 320, 280);
+    ctx.font = "700 32px sans-serif"; ctx.fillStyle = "#ff8a3d";
+    ctx.fillText(Math.round(lastCrash.damage) + "% damage \u2014 " + damageTierLabel(lastCrash.damage), 320, 340);
+    ctx.font = "700 40px sans-serif"; ctx.fillStyle = "#4ee08a";
+    ctx.fillText("+" + fmt(lastCrash.reward), 320, 420);
+    ctx.font = "500 20px sans-serif"; ctx.fillStyle = "#7d93b0";
+    ctx.fillText((profile.name||"Driver") + " \u00b7 " + new Date().toLocaleDateString(), 320, 470);
+    ctx.font = "italic 22px sans-serif"; ctx.fillStyle = "#e8f4ff";
+    wrapText(ctx, "\"I had a meeting at 4 PM.\"", 320, 560, 480, 28);
+    canvas.toBlob((blob) => {
+      const file = new File([blob], "crash-rush-card.png", {type:"image/png"});
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:"Crash Rush 3D", text:"Check out my crash!"}).catch(() => {});
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "crash-rush-card.png";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        showToast("💾 Crash card saved", "Check your downloads");
+      }
+    }, "image/png");
+  }
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+    const words = text.split(" ");
+    let line = "";
+    const lines = [];
+    words.forEach((w) => {
+      const test = line + w + " ";
+      if(ctx.measureText(test).width > maxWidth && line !== ""){ lines.push(line); line = w + " "; }
+      else line = test;
+    });
+    lines.push(line);
+    lines.forEach((l, i) => ctx.fillText(l.trim(), x, y + i*lineHeight));
+  }
+  function renderCrashGallery(){
+    const el = document.getElementById("crashGalleryList"); if(!el) return;
+    el.innerHTML = "";
+    if(!state.topCrashes.length){ el.innerHTML = '<div class="hof-sub">No standout crashes yet. Go make one.</div>'; return; }
+    state.topCrashes.forEach((r, i) => {
+      const car = getCar(r.carId);
+      const d = document.createElement("div");
+      d.className = "hof-card";
+      d.innerHTML =
+        '<div style="font-size:20px; font-weight:900; color:var(--cyan); width:24px;">#' + (i+1) + '</div>' +
+        '<div class="hof-info"><div class="hof-name">' + car.name + '</div><div class="hof-sub">' + Math.round(r.speed) + ' km/h \u00b7 ' + Math.round(r.damage) + '% damage \u00b7 +' + fmt(r.reward) + '</div></div>' +
+        '<div class="hof-title">' + r.impactScore.toLocaleString() + '</div>';
+      el.appendChild(d);
+    });
+  }
+  document.getElementById("crashGalleryBtn").addEventListener("click", () => {
+    renderCrashGallery();
+    document.getElementById("crashGalleryModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("crashGalleryCloseBtn").addEventListener("click", () => {
+    document.getElementById("crashGalleryModal").style.display = "none";
+    uiBlocked = false;
+  });
   document.getElementById("garageBtn").addEventListener("click", () => {
     renderGarage();
     document.getElementById("garageModal").style.display = "flex";
@@ -2137,7 +2268,11 @@
     document.getElementById("hapticsToggleBtn").textContent = state.hapticsEnabled ? "📳" : "🚫";
     document.getElementById("ambientToggleBtn").textContent = state.ambientOn ? "🔊" : "🔇";
     document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
+    document.getElementById("cinematicToggleBtn").textContent = state.cinematicMode ? "🎬" : "🚫";
     document.getElementById("screenFlashToggleBtn").textContent = state.screenFlashOn ? "\u2600\uFE0F" : "\uD83C\uDF11";
+    const sandboxRow = document.getElementById("sandboxRow");
+    sandboxRow.style.display = state.sandboxUnlocked ? "flex" : "none";
+    document.getElementById("sandboxToggleBtn").textContent = state.sandboxMode ? "🎨" : "🚫";
     renderHapticLevels(); renderCrashProfiles(); renderStressPresets();
     document.getElementById("crashSettingsModal").style.display = "flex";
     uiBlocked = true;
@@ -2354,6 +2489,23 @@
     applyZenModeUi();
     save();
   });
+  document.getElementById("cinematicToggleBtn").addEventListener("click", () => {
+    state.cinematicMode = !state.cinematicMode;
+    document.getElementById("cinematicToggleBtn").textContent = state.cinematicMode ? "🎬" : "🚫";
+    applyCinematicModeUi();
+    save();
+  });
+  document.getElementById("sandboxToggleBtn").addEventListener("click", () => {
+    if(!state.sandboxUnlocked) return;
+    state.sandboxMode = !state.sandboxMode;
+    document.getElementById("sandboxToggleBtn").textContent = state.sandboxMode ? "🎨" : "🚫";
+    if(state.sandboxMode){
+      CARS.forEach((c) => { if(!c.secret && state.ownedCarIds.indexOf(c.id)===-1) state.ownedCarIds.push(c.id); });
+      showToast("🎨 Sandbox Mode on", "Every standard car is now yours to crash.");
+      renderGarage();
+    }
+    save();
+  });
   function renderStressPresets(){
     const el = document.getElementById("stressPresetGrid"); if(!el) return;
     el.innerHTML = "";
@@ -2400,14 +2552,21 @@
       grid.appendChild(d);
     });
   }
-  document.getElementById("startBtn").addEventListener("click", () => {
-    const val = document.getElementById("nameInput").value.trim();
-    if(!val) return;
-    profile.name = val; profile.avatar = selectedAvatar;
+  function beginProfile(name, avatar){
+    profile.name = name; profile.avatar = avatar;
     document.getElementById("profileModal").style.display = "none";
     handleDailyLogin();
     applyProfileUi(); renderMoney(); renderStats(); renderMilestoneBar(); renderGarage();
     save();
+  }
+  document.getElementById("startBtn").addEventListener("click", () => {
+    const val = document.getElementById("nameInput").value.trim();
+    if(!val) return;
+    beginProfile(val, selectedAvatar);
+  });
+  document.getElementById("skipProfileBtn").addEventListener("click", () => {
+    const quickName = "Driver" + Math.floor(100 + Math.random()*900);
+    beginProfile(quickName, selectedAvatar);
   });
   document.getElementById("nameInput").addEventListener("keydown", (e) => { if(e.key === "Enter") document.getElementById("startBtn").click(); });
 
@@ -2434,6 +2593,7 @@
       rebuildActiveCar();
       renderMoney(); renderStats(); renderDistance(); renderSpeed(); renderGarage(); renderMilestoneBar(); renderOdometer();
       applyZenModeUi();
+      applyCinematicModeUi();
       startSession(state.sessionMode || "endless");
       requestAnimationFrame(animate);
       if(profile.name){
