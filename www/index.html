@@ -98,6 +98,29 @@
     font-weight:700; text-transform:uppercase; letter-spacing:0.5px; font-size:12px; cursor:pointer; margin-top:8px;
   }
 
+  .iap-card{background:var(--card); border:1px dashed var(--line); border-radius:10px; padding:16px; text-align:center;}
+  .iap-card b{font-weight:800; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;}
+  .iap-card small{display:block; color:var(--muted); font-size:12px; margin:6px 0 10px 0;}
+  .iap-card button{
+    width:100%; padding:10px; border:none; border-radius:8px; background:#2a2f38; color:var(--muted);
+    font-weight:700; text-transform:uppercase; font-size:12px; cursor:not-allowed;
+  }
+
+  .photo-mode-overlay{position:fixed; inset:0; z-index:60; display:none; align-items:flex-end; justify-content:center; padding-bottom:40px; pointer-events:none;}
+  .photo-mode-controls{display:flex; gap:10px; pointer-events:auto;}
+  .photo-btn{
+    background:var(--card); border:1px solid var(--line); border-radius:24px; padding:12px 18px;
+    color:var(--text); font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .photo-btn.primary{background:var(--cyan); color:#04121a; border-color:var(--cyan);}
+  body.photo-mode .hud, body.photo-mode .tap-zone, body.photo-mode #resultCard{display:none !important;}
+
+  .loading-overlay{
+    position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; align-items:center; justify-content:center;
+    transition:opacity 0.4s ease;
+  }
+  .loading-text{color:var(--cyan); font-weight:700; font-size:16px; letter-spacing:1px;}
+
   .settings-block{padding:10px 0; border-bottom:1px solid var(--line);}
   .settings-block-label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
   .level-grid{display:flex; flex-wrap:wrap; gap:6px;}
@@ -312,7 +335,9 @@
       <button class="icon-btn" id="sessionBtn" title="Session mode">⏱️</button>
       <button class="icon-btn" id="dailyChallengeBtn" title="Daily challenge">📅</button>
       <button class="icon-btn" id="materialBtn" title="Material packs">🧱</button>
+      <button class="icon-btn" id="crashLabBtn" title="Crash Lab">🔬</button>
       <button class="icon-btn" id="crashGalleryBtn" title="Top crashes">🎞️</button>
+      <button class="icon-btn" id="premiumBtn" title="Premium">🛒</button>
       <button class="icon-btn" id="hallOfFameBtn" title="Hall of Fame">🏆</button>
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
@@ -352,6 +377,7 @@
   <div class="rc-money" id="rcMoney">+$0</div>
   <button class="ad-btn" id="watchAdDoubleBtn">📺 Watch Ad to Double Reward</button>
   <button class="share-btn" id="shareCrashBtn">📤 Share Crash Card</button>
+  <button class="share-btn" id="photoModeBtn">📷 Photo Mode</button>
   <button class="rc-btn" id="rcBtn">Drive Again</button>
 </div>
 
@@ -401,6 +427,41 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="crashLabModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Crash Lab <span class="close-x" id="crashLabCloseBtn">✕</span></h2>
+    <div class="hof-section-label">Vehicle</div>
+    <div id="crashLabCarList"></div>
+    <div class="hof-section-label">Material</div>
+    <div class="rage-grid" id="crashLabMaterialGrid"></div>
+    <div class="hof-section-label">Theme</div>
+    <div class="rage-grid" id="crashLabRageGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="premiumModal" style="display:none;">
+  <div class="modal-card">
+    <h2>Premium <span class="close-x" id="premiumCloseBtn">✕</span></h2>
+    <div class="iap-card">
+      <b>🛒 Premium Pack — $2.99</b>
+      <small>Remove ads + exclusive gold car skin pack</small>
+      <button disabled>Coming Soon</button>
+    </div>
+  </div>
+</div>
+
+<div class="photo-mode-overlay" id="photoModeOverlay" style="display:none;">
+  <div class="photo-mode-controls">
+    <button class="photo-btn" id="photoCycleBtn">🔄 Angle</button>
+    <button class="photo-btn primary" id="photoCaptureBtn">📸 Capture</button>
+    <button class="photo-btn" id="photoExitBtn">✕ Exit</button>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-text">🔧 Preparing impact&hellip;</div>
+</div>
+
 <div class="modal-overlay" id="crashSettingsModal" style="display:none;">
   <div class="modal-card">
     <h2>Settings <span class="close-x" id="settingsCloseX">✕</span></h2>
@@ -424,6 +485,7 @@
     <div class="settings-row"><span>Screen flash on impact</span><button class="icon-btn" id="screenFlashToggleBtn">☀️</button></div>
     <div class="settings-row"><span>🧘 Zen Mode</span><button class="icon-btn" id="zenToggleBtn">🚫</button></div>
     <div class="settings-row"><span>🎬 Cinematic Mode</span><button class="icon-btn" id="cinematicToggleBtn">🚫</button></div>
+    <div class="settings-row"><span>🩻 X-Ray on Impact</span><button class="icon-btn" id="xrayToggleBtn">🚫</button></div>
     <div class="settings-row" id="sandboxRow" style="display:none;"><span>🎨 Sandbox Mode</span><button class="icon-btn" id="sandboxToggleBtn">🚫</button></div>
     <button class="rc-btn" id="settingsSaveBtn" style="margin-top:12px;">Save</button>
     <div class="settings-row"><span>Reset progress</span><button class="icon-btn" id="resetProgressBtn">🗑️</button></div>
@@ -501,6 +563,15 @@
     {id:"spreadsheets",  emoji:"\uD83D\uDE35", label:"Spreadsheets",  captions:["#REF! ERROR: WALL NOT FOUND.","PIVOT TABLE: OBLITERATED."]},
     {id:"monday",        emoji:"\u2615",        label:"Monday",        captions:["MONDAY: 0. YOU: 1.","COFFEE NOT NEEDED ANYMORE."]},
     {id:"everything",    emoji:"\uD83D\uDC80", label:"Everything",    captions:["YOUR MANAGER WILL NEVER KNOW.","EVERYTHING, HANDLED."]},
+  ];
+  const GENERIC_CRASH_CAPTIONS = [
+    "Insurance called. They're not happy.",
+    "That's going straight in the group chat.",
+    "10/10, no notes.",
+    "The wall started it.",
+    "Somewhere, an engineer just felt a disturbance.",
+    "Structurally, that's a statement.",
+    "Poetry in motion. Then not.",
   ];
   function getRageTheme(id){ for(let i=0;i<RAGE_THEMES.length;i++){ if(RAGE_THEMES[i].id===id) return RAGE_THEMES[i]; } return RAGE_THEMES[0]; }
 
@@ -743,7 +814,7 @@
     profileCrashCounts: {}, officeRageCrashCount: 0, crashHistory: [],
     unlockedAchievements: [], materialPack: "concrete", materialCrashCounts: {},
     rageThemeCounts: {}, weeklyChallenge: null,
-    cinematicMode: false, sandboxUnlocked: false, sandboxMode: false, topCrashes: [],
+    cinematicMode: false, sandboxUnlocked: false, sandboxMode: false, topCrashes: [], xrayMode: false,
   };
   function getCarStats(carId){
     if(!state.carStats[carId]) state.carStats[carId] = {crashes:0, bestSpeed:0, bestDamage:0};
@@ -1722,6 +1793,29 @@
     if(!el) return;
     el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse");
   }
+  // X-Ray Crash Mode: briefly reveal a simplified wireframe chassis/engine skeleton
+  // inside the car on impact, matching the crash-test-lab aesthetic already in the scene.
+  function spawnXraySkeleton(){
+    if(!state.xrayMode || !carGroup || !scene) return;
+    const mat = new THREE.LineBasicMaterial({color:0x29e5ff, transparent:true, opacity:0.85});
+    const group = new THREE.Group();
+    const frameEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1.6, 0.3, 3.6));
+    const frame = new THREE.LineSegments(frameEdges, mat);
+    frame.position.set(0, 0.35, 0);
+    group.add(frame);
+    const engineEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.8, 0.6, 0.8));
+    const engine = new THREE.LineSegments(engineEdges, mat);
+    engine.position.set(0, 0.55, 1.3);
+    group.add(engine);
+    group.position.copy(carGroup.position);
+    group.rotation.copy(carGroup.rotation);
+    group.scale.copy(carGroup.scale);
+    scene.add(group);
+    setTimeout(() => {
+      scene.remove(group);
+      frameEdges.dispose(); engineEdges.dispose(); mat.dispose();
+    }, 1300);
+  }
 
   function startSession(modeId){
     state.sessionMode = modeId;
@@ -1831,6 +1925,54 @@
     camera.lookAt(CHASE_LOOK_TARGET);
     shakeBase.copy(camBasePos);
     camera.fov = 68; camera.updateProjectionMatrix();
+  }
+
+  // Photo Mode: cycle a few preset cinematic angles around the just-crashed car and
+  // capture a real screenshot of the 3D scene, not a drawn stat card. Only reachable
+  // from the result card, so `carGroup` is guaranteed to still be in its crashed pose.
+  const PHOTO_ANGLES = [
+    {x:6.5, y:2.3, z:4.5},
+    {x:-6.5, y:2.0, z:3.5},
+    {x:0, y:5.5, z:5.5},
+    {x:0, y:1.6, z:-4.5},
+  ];
+  let photoAngleIndex = 0;
+  function applyPhotoAngle(){
+    if(!carGroup) return;
+    const a = PHOTO_ANGLES[photoAngleIndex];
+    camera.position.set(carGroup.position.x + a.x, carGroup.position.y + a.y, carGroup.position.z + a.z);
+    camera.lookAt(carGroup.position.x, carGroup.position.y + 0.6, carGroup.position.z);
+  }
+  function enterPhotoMode(){
+    if(!carGroup) return;
+    document.getElementById("resultCard").classList.remove("show");
+    document.body.classList.add("photo-mode");
+    photoAngleIndex = 0;
+    applyPhotoAngle();
+    document.getElementById("photoModeOverlay").style.display = "flex";
+  }
+  function cyclePhotoAngle(){
+    photoAngleIndex = (photoAngleIndex + 1) % PHOTO_ANGLES.length;
+    applyPhotoAngle();
+  }
+  function capturePhoto(){
+    try{
+      renderer.render(scene, camera);
+      const dataUrl = renderer.domElement.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl; a.download = "crash-rush-photo.png";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      showToast("📷 Photo saved", "Check your downloads");
+    }catch(e){
+      logError("photo capture failed: " + (e && e.message ? e.message : e));
+      showToast("⚠️ Couldn't save photo", "Try again in a moment");
+    }
+  }
+  function exitPhotoMode(){
+    document.body.classList.remove("photo-mode");
+    document.getElementById("photoModeOverlay").style.display = "none";
+    restoreChaseCamera();
+    document.getElementById("resultCard").classList.add("show");
   }
 
   function playCrashReplay(impactSpeed, damagePercent, onComplete){
@@ -1975,6 +2117,7 @@
         wallMesh.material.needsUpdate = true;
       }
     });
+    safely("xray-effect", spawnXraySkeleton);
     safely("milestones", checkMilestones);
     safely("achievements", checkAchievements);
     safely("secret-cars", checkSecretCarUnlocks);
@@ -2002,6 +2145,9 @@
       const captionEl = document.getElementById("rcCaption");
       if(rageTheme.id !== "default"){
         captionEl.textContent = rageTheme.captions[Math.floor(Math.random()*rageTheme.captions.length)];
+        captionEl.style.display = "block";
+      } else if(damagePercent >= 70){
+        captionEl.textContent = GENERIC_CRASH_CAPTIONS[Math.floor(Math.random()*GENERIC_CRASH_CAPTIONS.length)];
         captionEl.style.display = "block";
       } else {
         captionEl.style.display = "none";
@@ -2107,8 +2253,8 @@
   }
 
   // ---------- garage ----------
-  function renderGarage(){
-    const el = document.getElementById("carList"); el.innerHTML = "";
+  function renderGarage(targetId){
+    const el = document.getElementById(targetId || "carList"); el.innerHTML = "";
     CARS.forEach((car) => {
       const owned = state.ownedCarIds.indexOf(car.id) !== -1;
       const active = state.activeCarId === car.id;
@@ -2155,17 +2301,21 @@
       }
     });
   }
+  function refreshCarLists(){
+    renderGarage();
+    if(document.getElementById("crashLabCarList")) renderGarage("crashLabCarList");
+  }
   function buyCar(car){
     if(state.money < car.cost) return;
     state.money -= car.cost;
     state.ownedCarIds.push(car.id);
     playCoinSound();
     showToast("🚗 " + car.name + " purchased!", "Head to the garage to drive it");
-    save(); renderMoney(); renderGarage();
+    save(); renderMoney(); refreshCarLists();
   }
   function selectCar(car){
     state.activeCarId = car.id;
-    save(); renderGarage(); resetRun();
+    save(); refreshCarLists(); resetRun();
     showToast("🔑 Now driving", car.name);
   }
 
@@ -2182,6 +2332,10 @@
     renderMoney(); save();
   });
   document.getElementById("shareCrashBtn").addEventListener("click", shareCrashCard);
+  document.getElementById("photoModeBtn").addEventListener("click", enterPhotoMode);
+  document.getElementById("photoCycleBtn").addEventListener("click", cyclePhotoAngle);
+  document.getElementById("photoCaptureBtn").addEventListener("click", capturePhoto);
+  document.getElementById("photoExitBtn").addEventListener("click", exitPhotoMode);
   function shareCrashCard(){
     if(!lastCrash) return;
     const canvas = document.createElement("canvas");
@@ -2269,6 +2423,7 @@
     document.getElementById("ambientToggleBtn").textContent = state.ambientOn ? "🔊" : "🔇";
     document.getElementById("zenToggleBtn").textContent = state.zenMode ? "🧘" : "🚫";
     document.getElementById("cinematicToggleBtn").textContent = state.cinematicMode ? "🎬" : "🚫";
+    document.getElementById("xrayToggleBtn").textContent = state.xrayMode ? "🩻" : "🚫";
     document.getElementById("screenFlashToggleBtn").textContent = state.screenFlashOn ? "\u2600\uFE0F" : "\uD83C\uDF11";
     const sandboxRow = document.getElementById("sandboxRow");
     sandboxRow.style.display = state.sandboxUnlocked ? "flex" : "none";
@@ -2296,47 +2451,57 @@
     try{ localStorage.removeItem("crashrush-save-v1"); }catch(e){}
     location.reload();
   });
-  function renderRageGrid(){
-    const el = document.getElementById("rageGrid"); el.innerHTML = "";
+  function renderRageGrid(targetId){
+    const isLab = !!targetId;
+    const el = document.getElementById(targetId || "rageGrid"); el.innerHTML = "";
     RAGE_THEMES.forEach((t) => {
       const d = document.createElement("div");
       d.className = "rage-choice";
       d.innerHTML = '<span class="rg-emoji">' + t.emoji + '</span>' + t.label;
-      d.onclick = () => selectRageTheme(t);
+      d.onclick = () => selectRageTheme(t, isLab);
       el.appendChild(d);
     });
   }
-  function selectRageTheme(theme){
+  function selectRageTheme(theme, fromLab){
     state.rageTheme = theme.id;
     if(wallMesh){
       wallMesh.material.map = makeWallTexture(theme, getMaterialPack(state.materialPack), state.totalCrashes);
       wallMesh.material.needsUpdate = true;
     }
-    document.getElementById("officeRageModal").style.display = "none";
-    uiBlocked = false;
+    if(fromLab){
+      renderRageGrid("crashLabRageGrid");
+    } else {
+      document.getElementById("officeRageModal").style.display = "none";
+      uiBlocked = false;
+    }
     showToast(theme.emoji + " Now crashing: " + theme.label, "Same wall, different feelings.");
     save();
   }
-  function renderMaterialGrid(){
-    const el = document.getElementById("materialGrid"); el.innerHTML = "";
+  function renderMaterialGrid(targetId){
+    const isLab = !!targetId;
+    const el = document.getElementById(targetId || "materialGrid"); el.innerHTML = "";
     MATERIAL_PACKS.forEach((m) => {
       const count = state.materialCrashCounts[m.id] || 0;
       const d = document.createElement("div");
       d.className = "rage-choice";
       d.innerHTML = '<span class="rg-emoji">' + m.emoji + '</span>' + m.label + '<div class="session-desc">' + (count > 0 ? count + " crashes here" : "Not yet tried") + '</div>';
-      d.onclick = () => selectMaterial(m);
+      d.onclick = () => selectMaterial(m, isLab);
       el.appendChild(d);
     });
   }
-  function selectMaterial(material){
+  function selectMaterial(material, fromLab){
     state.materialPack = material.id;
     state.crashProfile = material.soundProfile;
     if(wallMesh){
       wallMesh.material.map = makeWallTexture(getRageTheme(state.rageTheme), material, state.totalCrashes);
       wallMesh.material.needsUpdate = true;
     }
-    document.getElementById("materialModal").style.display = "none";
-    uiBlocked = false;
+    if(fromLab){
+      renderMaterialGrid("crashLabMaterialGrid");
+    } else {
+      document.getElementById("materialModal").style.display = "none";
+      uiBlocked = false;
+    }
     showToast(material.emoji + " " + material.label, "Sound profile matched automatically.");
     save();
   }
@@ -2395,6 +2560,23 @@
   });
   document.getElementById("materialCloseBtn").addEventListener("click", () => {
     document.getElementById("materialModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("premiumBtn").addEventListener("click", () => {
+    document.getElementById("premiumModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("premiumCloseBtn").addEventListener("click", () => {
+    document.getElementById("premiumModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("crashLabBtn").addEventListener("click", () => {
+    renderGarage("crashLabCarList"); renderMaterialGrid("crashLabMaterialGrid"); renderRageGrid("crashLabRageGrid");
+    document.getElementById("crashLabModal").style.display = "flex";
+    uiBlocked = true;
+  });
+  document.getElementById("crashLabCloseBtn").addEventListener("click", () => {
+    document.getElementById("crashLabModal").style.display = "none";
     uiBlocked = false;
   });
   document.getElementById("endSessionDoneBtn").addEventListener("click", () => {
@@ -2493,6 +2675,11 @@
     state.cinematicMode = !state.cinematicMode;
     document.getElementById("cinematicToggleBtn").textContent = state.cinematicMode ? "🎬" : "🚫";
     applyCinematicModeUi();
+    save();
+  });
+  document.getElementById("xrayToggleBtn").addEventListener("click", () => {
+    state.xrayMode = !state.xrayMode;
+    document.getElementById("xrayToggleBtn").textContent = state.xrayMode ? "🩻" : "🚫";
     save();
   });
   document.getElementById("sandboxToggleBtn").addEventListener("click", () => {
@@ -2596,6 +2783,8 @@
       applyCinematicModeUi();
       startSession(state.sessionMode || "endless");
       requestAnimationFrame(animate);
+      const loadingEl = document.getElementById("loadingOverlay");
+      if(loadingEl){ loadingEl.style.opacity = "0"; setTimeout(() => { loadingEl.style.display = "none"; }, 400); }
       if(profile.name){
         applyProfileUi();
         handleDailyLogin();
@@ -2609,6 +2798,8 @@
       }
     }catch(e){
       logError("init failed: " + e.message);
+      const loadingEl2 = document.getElementById("loadingOverlay");
+      if(loadingEl2) loadingEl2.style.display = "none";
       document.body.innerHTML = "<div style='padding:40px;text-align:center;color:#fff;font-family:sans-serif;'>This device couldn't start 3D graphics. Try updating your System WebView app from the Play Store.</div>";
     }
   })();
