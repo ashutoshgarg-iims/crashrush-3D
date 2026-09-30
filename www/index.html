@@ -46,6 +46,9 @@
   .rc-damage{color:var(--orange); font-weight:800; font-size:13px; margin-top:4px;}
   .rc-score{color:var(--cyan); font-weight:800; font-size:13px; margin-top:6px;}
   .rc-power{color:var(--magenta); font-weight:700; font-size:12px; margin-top:4px;}
+  .rc-wall-status{font-size:11px; font-weight:700; margin-top:6px; padding:6px 10px; border-radius:8px;}
+  .rc-wall-status.broken{background:rgba(255,59,59,0.18); color:#ff5a5a; border:1px solid #ff5a5a;}
+  .rc-wall-status.hint{background:rgba(255,255,255,0.06); color:var(--muted);}
   .rarity-badge{
     font-size:9px; font-weight:800; text-transform:uppercase; padding:2px 7px; border-radius:10px;
     display:inline-block; vertical-align:middle; margin-left:4px; letter-spacing:0.5px;
@@ -189,12 +192,26 @@
   .money{
     background:var(--card); border:1px solid var(--good); border-radius:20px; padding:7px 14px;
     font-weight:700; color:var(--good); font-variant-numeric:tabular-nums; font-size:15px;
+    flex-shrink:0;
   }
   .icon-btn{
     background:var(--card); border:1px solid var(--line); border-radius:8px; width:38px; height:38px;
     color:var(--text); font-size:17px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    flex-shrink:0;
   }
-  .top-actions{display:flex; gap:8px;}
+  .top-actions{
+    display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; -ms-overflow-style:none; min-width:0; padding-right:4px;
+  }
+  .top-actions::-webkit-scrollbar{display:none;}
+  .topbar{min-width:0;}
+  .brand-row{flex-shrink:0;}
+  /* fade hint at the right edge so it's visually obvious there's more to scroll to */
+  .top-actions-wrap{position:relative; min-width:0; flex:1; display:flex; overflow:hidden;}
+  .top-actions-wrap::after{
+    content:""; position:absolute; top:0; right:0; bottom:0; width:18px; pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(5,7,10,0.9));
+  }
 
   .center-hud{
     position:absolute; top:70px; left:50%; transform:translateX(-50%); text-align:center; pointer-events:none;
@@ -204,6 +221,20 @@
   .distance.close{color:var(--danger); text-shadow:0 0 22px rgba(255,77,77,0.8); animation:pulseClose 0.4s infinite alternate;}
   @keyframes pulseClose{from{transform:scale(1);}to{transform:scale(1.06);}}
 
+  .gauge-cluster{
+    position:absolute; bottom:225px; left:0; right:0; display:flex; justify-content:center; gap:18px;
+    pointer-events:none; z-index:4;
+  }
+  .gauge{position:relative; width:118px; height:118px;}
+  .gauge-svg{width:100%; height:100%; filter:drop-shadow(0 2px 8px rgba(0,0,0,0.5));}
+  .needle{transform-origin:100px 100px; transform:rotate(-130deg); transition:transform 0.06s linear;}
+  .gauge-digital{
+    position:absolute; left:50%; bottom:26%; transform:translateX(-50%); text-align:center;
+    font-weight:900; font-variant-numeric:tabular-nums; line-height:1;
+  }
+  .gauge-digital span:first-child{font-size:20px; display:block; text-shadow:0 0 8px rgba(41,229,255,0.6);}
+  .gauge-unit{font-size:9px; color:var(--muted); font-weight:700;}
+  .gauge-digital.small{font-size:9px; color:var(--muted); font-weight:700; letter-spacing:1px;}
   .speed-wrap{position:absolute; bottom:110px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;}
   .speed-val{font-size:34px; font-weight:900; font-variant-numeric:tabular-nums;}
   .speed-val .kmh{font-size:14px; color:var(--muted); margin-left:4px;}
@@ -328,6 +359,7 @@
         <span class="who-rank" id="playerRank">Rookie Driver</span>
       </div>
     </div>
+    <div class="top-actions-wrap">
     <div class="top-actions">
       <div class="money" id="moneyDisplay">$0</div>
       <button class="icon-btn" id="garageBtn" title="Garage">🚗</button>
@@ -342,6 +374,7 @@
       <button class="icon-btn" id="aboutBtn" title="About this game">ℹ️</button>
       <button class="icon-btn" id="crashSettingsBtn" title="Settings">⚙️</button>
     </div>
+    </div>
   </div>
   <div class="milestone-bar">
     <div class="mb-head"><span id="mbLabel">Next milestone</span><span id="mbCount">0 / 1</span></div>
@@ -351,9 +384,123 @@
   <div class="center-hud">
     <div class="distance" id="distanceVal">100<span class="unit">m</span></div>
   </div>
+  <div class="gauge-cluster">
+    <div class="gauge">
+      <svg viewBox="0 0 200 200" class="gauge-svg">
+        <circle cx="100" cy="100" r="88" fill="rgba(8,11,15,0.55)" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+    <line x1="37.2" y1="152.7" x2="44.8" y2="146.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="55.6" y="137.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">0</text>
+    <line x1="31.6" y1="145.3" x2="35.0" y2="143.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="26.9" y1="137.2" x2="30.5" y2="135.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="23.2" y1="128.7" x2="26.9" y2="127.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="20.4" y1="119.8" x2="30.1" y2="117.4" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="43.7" y="114.0" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">40</text>
+    <line x1="18.7" y1="110.7" x2="22.7" y2="110.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="18.0" y1="101.4" x2="22.0" y2="101.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="18.4" y1="92.1" x2="22.4" y2="92.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="19.8" y1="83.0" x2="29.6" y2="85.0" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="43.3" y="87.9" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">80</text>
+    <line x1="22.2" y1="74.0" x2="26.0" y2="75.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="25.7" y1="65.3" x2="29.3" y2="67.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="30.1" y1="57.2" x2="33.5" y2="59.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="35.4" y1="49.5" x2="43.3" y2="55.7" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="54.3" y="64.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">120</text>
+    <line x1="41.5" y1="42.5" x2="44.4" y2="45.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="48.4" y1="36.3" x2="50.9" y2="39.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="55.9" y1="30.8" x2="58.1" y2="34.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="64.1" y1="26.3" x2="68.4" y2="35.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="74.6" y="47.9" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">160</text>
+    <line x1="72.6" y1="22.7" x2="74.0" y2="26.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="81.6" y1="20.1" x2="82.5" y2="24.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="90.7" y1="18.5" x2="91.2" y2="22.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="100.0" y1="18.0" x2="100.0" y2="28.0" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="100.0" y="42.0" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">200</text>
+    <line x1="109.3" y1="18.5" x2="108.8" y2="22.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="118.4" y1="20.1" x2="117.5" y2="24.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="127.4" y1="22.7" x2="126.0" y2="26.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="135.9" y1="26.3" x2="131.6" y2="35.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="125.4" y="47.9" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">240</text>
+    <line x1="144.1" y1="30.8" x2="141.9" y2="34.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="151.6" y1="36.3" x2="149.1" y2="39.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="158.5" y1="42.5" x2="155.6" y2="45.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="164.6" y1="49.5" x2="156.7" y2="55.7" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="145.7" y="64.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">280</text>
+    <line x1="169.9" y1="57.2" x2="166.5" y2="59.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="174.3" y1="65.3" x2="170.7" y2="67.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="177.8" y1="74.0" x2="174.0" y2="75.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="180.2" y1="83.0" x2="170.4" y2="85.0" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="156.7" y="87.9" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">320</text>
+    <line x1="181.6" y1="92.1" x2="177.6" y2="92.5" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="182.0" y1="101.4" x2="178.0" y2="101.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="181.3" y1="110.7" x2="177.3" y2="110.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="179.6" y1="119.8" x2="169.9" y2="117.4" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="156.3" y="114.0" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">360</text>
+    <line x1="176.8" y1="128.7" x2="173.1" y2="127.3" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="173.1" y1="137.2" x2="169.5" y2="135.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="168.4" y1="145.3" x2="165.0" y2="143.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="162.8" y1="152.7" x2="155.2" y2="146.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="144.4" y="137.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">400</text>
+    <text x="100" y="134" fill="rgba(255,255,255,0.5)" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1">KM/H</text>
+    <circle cx="100" cy="100" r="5" fill="#29e5ff"/>
+        <line id="speedNeedle" x1="100" y1="100" x2="100" y2="28" stroke="#ff2e9a" stroke-width="3" stroke-linecap="round" class="needle"/>
+      </svg>
+      <div class="gauge-digital"><span id="speedVal">0</span><span class="gauge-unit">km/h</span></div>
+    </div>
+    <div class="gauge">
+      <svg viewBox="0 0 200 200" class="gauge-svg">
+        <circle cx="100" cy="100" r="88" fill="rgba(8,11,15,0.55)" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+    <path d="M 181.3 110.7 A 82 82 0 0 1 162.8 152.7" stroke="#ff3b3b" stroke-width="5" fill="none" opacity="0.85"/>
+    <line x1="37.2" y1="152.7" x2="44.8" y2="146.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="55.6" y="137.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">0</text>
+    <line x1="30.4" y1="143.3" x2="33.8" y2="141.2" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="24.9" y1="133.0" x2="28.6" y2="131.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="21.0" y1="122.1" x2="24.9" y2="121.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="18.7" y1="110.7" x2="28.6" y2="109.4" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="42.5" y="107.6" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">1</text>
+    <line x1="18.0" y1="99.1" x2="22.0" y2="99.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="19.0" y1="87.5" x2="22.9" y2="88.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="21.5" y1="76.2" x2="25.4" y2="77.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="25.7" y1="65.3" x2="34.7" y2="69.6" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="47.4" y="75.5" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">2</text>
+    <line x1="31.3" y1="55.2" x2="34.7" y2="57.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="38.3" y1="45.9" x2="41.4" y2="48.6" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="46.6" y1="37.8" x2="49.2" y2="40.8" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="55.9" y1="30.8" x2="61.3" y2="39.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="68.8" y="51.1" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">3</text>
+    <line x1="66.2" y1="25.3" x2="67.8" y2="29.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="77.1" y1="21.3" x2="78.2" y2="25.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="88.4" y1="18.8" x2="89.0" y2="22.8" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="100.0" y1="18.0" x2="100.0" y2="28.0" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="100.0" y="42.0" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">4</text>
+    <line x1="111.6" y1="18.8" x2="111.0" y2="22.8" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="122.9" y1="21.3" x2="121.8" y2="25.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="133.8" y1="25.3" x2="132.2" y2="29.0" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="144.1" y1="30.8" x2="138.7" y2="39.3" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="131.2" y="51.1" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">5</text>
+    <line x1="153.4" y1="37.8" x2="150.8" y2="40.8" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="161.7" y1="45.9" x2="158.6" y2="48.6" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="168.7" y1="55.2" x2="165.3" y2="57.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="174.3" y1="65.3" x2="165.3" y2="69.6" stroke="rgba(255,255,255,0.55)" stroke-width="2.4"/>
+    <text x="152.6" y="75.5" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">6</text>
+    <line x1="178.5" y1="76.2" x2="174.6" y2="77.4" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="181.0" y1="87.5" x2="177.1" y2="88.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="182.0" y1="99.1" x2="178.0" y2="99.1" stroke="rgba(255,255,255,0.55)" stroke-width="1.1"/>
+    <line x1="181.3" y1="110.7" x2="171.4" y2="109.4" stroke="#ff5a5a" stroke-width="2.4"/>
+    <text x="157.5" y="107.6" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">7</text>
+    <line x1="179.0" y1="122.1" x2="175.1" y2="121.0" stroke="#ff5a5a" stroke-width="1.1"/>
+    <line x1="175.1" y1="133.0" x2="171.4" y2="131.4" stroke="#ff5a5a" stroke-width="1.1"/>
+    <line x1="169.6" y1="143.3" x2="166.2" y2="141.2" stroke="#ff5a5a" stroke-width="1.1"/>
+    <line x1="162.8" y1="152.7" x2="155.2" y2="146.3" stroke="#ff5a5a" stroke-width="2.4"/>
+    <text x="144.4" y="137.3" fill="rgba(255,255,255,0.8)" font-size="9" font-weight="800" text-anchor="middle" dominant-baseline="middle">8</text>
+    <text x="100" y="134" fill="rgba(255,255,255,0.5)" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1">RPM x1000</text>
+    <circle cx="100" cy="100" r="5" fill="#29e5ff"/>
+        <line id="rpmNeedle" x1="100" y1="100" x2="100" y2="28" stroke="#29e5ff" stroke-width="3" stroke-linecap="round" class="needle"/>
+      </svg>
+      <div class="gauge-digital small">RPM</div>
+    </div>
+  </div>
   <div class="speed-wrap">
-    <div class="speed-val"><span id="speedVal">0</span><span class="kmh">km/h</span></div>
-    <div class="speed-bar"><div class="speed-fill" id="speedFill"></div></div>
+    <div class="speed-bar" style="display:none;"><div class="speed-fill" id="speedFill"></div></div>
     <div class="odo-panel">ODO <span id="odoVal">000000</span> KM</div>
     <div class="stress-wrap">
       <div class="stress-label">STRESS <span id="stressPct">0%</span></div>
@@ -372,6 +519,7 @@
   <div class="rc-damage" id="rcDamage">Damage: 0%</div>
   <div class="rc-score" id="rcScore">Impact Score 0</div>
   <div class="rc-power" id="rcPower">Impact Power 0 kN</div>
+  <div class="rc-wall-status" id="rcWallStatus"></div>
   <div class="rc-zones" id="rcZones"></div>
   <div class="rc-caption" id="rcCaption" style="display:none;"></div>
   <div class="rc-money" id="rcMoney">+$0</div>
@@ -513,6 +661,15 @@
     <div style="margin:14px 0; color:var(--muted); font-size:13px;">Take a breath.</div>
     <button class="rc-btn" id="endSessionMoreBtn" style="margin-bottom:8px;">One More</button>
     <button class="rc-btn" id="endSessionDoneBtn" style="background:var(--card); color:var(--text);">Done</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="exitConfirmModal" style="display:none;">
+  <div class="modal-card" style="text-align:center;">
+    <h2 style="justify-content:center;">Leaving already?</h2>
+    <div id="exitConfirmLine" style="margin:14px 0; color:var(--text); font-size:14px; font-style:italic;"></div>
+    <button class="rc-btn" id="exitConfirmYesBtn" style="margin-bottom:8px; background:var(--danger);">Yes, exit</button>
+    <button class="rc-btn" id="exitConfirmNoBtn" style="background:var(--card); color:var(--text);">Keep crashing</button>
   </div>
 </div>
 
@@ -1234,6 +1391,128 @@
   }
   // Reinforced impact-test wall: padded panel look with hazard corner triangles
   // and a center alignment cross, like a real crash barrier.
+  // Original, hand-drawn wall art per Office Rage theme -- generic mockups that
+  // capture the same joke as a real screenshot (an inbox, a meeting grid, a
+  // spreadsheet, a deadline calendar, a grumpy Monday) without reproducing anyone
+  // else's copyrighted software UI or a real photo of real people.
+  function drawPosterFrame(ctx){
+    ctx.fillStyle = "rgba(18,20,24,0.7)";
+    ctx.fillRect(60, 34, 392, 188);
+    ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 2;
+    ctx.strokeRect(60, 34, 392, 188);
+  }
+  function drawEmailsScene(ctx){
+    drawPosterFrame(ctx);
+    // sidebar
+    ctx.fillStyle = "#2a3646"; ctx.fillRect(76, 48, 70, 160);
+    for(let i=0;i<4;i++){ ctx.fillStyle = i===0 ? "#3d8bff" : "#48566a"; ctx.fillRect(86, 62+i*22, 50, 10); }
+    // inbox list
+    ctx.fillStyle = "#eef1f5"; ctx.fillRect(150, 48, 288, 160);
+    for(let i=0;i<5;i++){
+      const y = 58 + i*30;
+      ctx.fillStyle = ["#ff6b6b","#4ecb71","#3d8bff","#f4c430","#a06bff"][i];
+      ctx.beginPath(); ctx.arc(166, y+10, 9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#20242b"; ctx.fillRect(184, y+3, 140 - i*8, 6);
+      ctx.fillStyle = "#8892a0"; ctx.fillRect(184, y+13, 110 - i*6, 5);
+    }
+    ctx.fillStyle = "#3d8bff"; ctx.fillRect(380, 48, 58, 22);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("SEND", 409, 63);
+  }
+  function drawMeetingsScene(ctx){
+    drawPosterFrame(ctx);
+    ctx.fillStyle = "#15181e"; ctx.fillRect(76, 48, 362, 160);
+    const cols = 4, rows = 2, gw = 82, gh = 68, gx = 88, gy = 58;
+    const colors = ["#e8c07a","#c9a8e8","#a8d8c9","#e8a8b0","#a8c0e8","#e8d8a8","#c0e8a8","#d8a8e8"];
+    for(let i=0;i<cols*rows;i++){
+      const cx = gx + (i%cols)*(gw+6), cy = gy + Math.floor(i/cols)*(gh+6);
+      ctx.fillStyle = "#232833"; ctx.fillRect(cx, cy, gw, gh);
+      ctx.fillStyle = colors[i]; ctx.beginPath(); ctx.arc(cx+gw/2, cy+gh/2-6, 16, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("MUTED", cx+gw/2, cy+gh-8);
+    }
+  }
+  function drawSpreadsheetsScene(ctx){
+    drawPosterFrame(ctx);
+    ctx.fillStyle = "#1b3a52"; ctx.fillRect(76, 48, 362, 24);
+    ctx.fillStyle = "#eef1f5"; ctx.fillRect(76, 72, 362, 136);
+    const cols = 6, rows = 5, cw = 60, ch = 27;
+    ctx.strokeStyle = "#c3cbd4"; ctx.lineWidth = 1;
+    for(let r=0;r<=rows;r++){ ctx.beginPath(); ctx.moveTo(76, 72+r*ch); ctx.lineTo(76+cols*cw, 72+r*ch); ctx.stroke(); }
+    for(let cIdx=0;cIdx<=cols;cIdx++){ ctx.beginPath(); ctx.moveTo(76+cIdx*cw, 72); ctx.lineTo(76+cIdx*cw, 72+rows*ch); ctx.stroke(); }
+    ctx.fillStyle = "#20242b"; ctx.font = "10px sans-serif"; ctx.textAlign = "left";
+    let seedN = 42;
+    function rndN(){ seedN = (seedN*1103515245+12345) & 0x7fffffff; return seedN % 1000; }
+    for(let r=1;r<rows;r++){ for(let cIdx=0;cIdx<cols;cIdx++){
+      ctx.fillStyle = rndN()%7===0 ? "#c0392b" : "#20242b";
+      ctx.fillText("$" + rndN(), 80+cIdx*cw, 72+(r+0.65)*ch);
+    }}
+  }
+  function drawDeadlinesScene(ctx){
+    drawPosterFrame(ctx);
+    ctx.fillStyle = "#f3f0e8"; ctx.fillRect(76, 48, 362, 160);
+    ctx.strokeStyle = "#c3c0b6"; ctx.lineWidth = 1;
+    for(let cIdx=1;cIdx<7;cIdx++){ ctx.beginPath(); ctx.moveTo(76+cIdx*52, 48); ctx.lineTo(76+cIdx*52, 208); ctx.stroke(); }
+    for(let r=1;r<4;r++){ ctx.beginPath(); ctx.moveTo(76, 48+r*53); ctx.lineTo(438, 48+r*53); ctx.stroke(); }
+    ctx.fillStyle = "#20242b"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center";
+    let n = 1;
+    for(let r=0;r<3;r++){ for(let cIdx=0;cIdx<7;cIdx++){
+      if(n>21) break;
+      ctx.fillText(String(n), 76+cIdx*52+26, 48+r*53+30); n++;
+    }}
+    ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(76+3*52+26, 48+1*53+26, 30, 22, -0.1, 0, Math.PI*2); ctx.stroke();
+    ctx.save(); ctx.translate(256, 172); ctx.rotate(-0.15);
+    ctx.fillStyle = "#c0392b"; ctx.font = "900 30px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("DEADLINE", 0, 0);
+    ctx.restore();
+  }
+  function drawMondayScene(ctx){
+    drawPosterFrame(ctx);
+    ctx.fillStyle = "#3a1f52"; ctx.fillRect(76, 48, 362, 160);
+    ctx.fillStyle = "#f3f0e8"; ctx.font = "900 20px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("IT'S MONDAY AGAIN", 257, 68);
+    // original grumpy-cat-style face -- simple geometric shapes, not anyone's photo/art
+    const fx = 257, fy = 148;
+    ctx.fillStyle = "#e8a854";
+    ctx.beginPath(); ctx.ellipse(fx, fy, 58, 50, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(fx-50,fy-38); ctx.lineTo(fx-66,fy-72); ctx.lineTo(fx-28,fy-46); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(fx+50,fy-38); ctx.lineTo(fx+66,fy-72); ctx.lineTo(fx+28,fy-46); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#20242b";
+    ctx.beginPath(); ctx.ellipse(fx-20, fy-6, 9, 4, -0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(fx+20, fy-6, 9, 4, 0.2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(fx-6,fy+14); ctx.lineTo(fx+6,fy+14); ctx.lineTo(fx,fy+22); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#20242b"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(fx,fy+22); ctx.quadraticCurveTo(fx-14,fy+30,fx-24,fy+24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(fx,fy+22); ctx.quadraticCurveTo(fx+14,fy+30,fx+24,fy+24); ctx.stroke();
+  }
+  function drawEverythingScene(ctx){
+    drawPosterFrame(ctx);
+    ctx.fillStyle = "#20141a"; ctx.fillRect(76, 48, 362, 160);
+    ctx.save(); ctx.translate(140, 90); ctx.rotate(-0.15);
+    ctx.fillStyle = "#eef1f5"; ctx.fillRect(-28,-18,56,36);
+    ctx.strokeStyle="#8892a0"; ctx.beginPath(); ctx.moveTo(-28,-18); ctx.lineTo(0,4); ctx.lineTo(28,-18); ctx.stroke();
+    ctx.restore();
+    ctx.save(); ctx.translate(370, 84); ctx.rotate(0.12);
+    ctx.strokeStyle="#c3cbd4"; ctx.lineWidth=1;
+    for(let i=0;i<3;i++) ctx.strokeRect(-30+i*20,-18,18,36);
+    ctx.restore();
+    ctx.save(); ctx.translate(256, 150); ctx.rotate(0.05);
+    ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0,0,26,18,-0.1,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle = "#c0392b"; ctx.font = "900 14px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("DEADLINE", 0, 32);
+    ctx.restore();
+    ctx.save(); ctx.translate(180, 165); ctx.rotate(-0.08);
+    for(let i=0;i<3;i++){ ctx.fillStyle = ["#ff6b6b","#4ecb71","#3d8bff"][i]; ctx.beginPath(); ctx.arc(-20+i*20,0,7,0,Math.PI*2); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = "#f3f0e8"; ctx.font = "900 26px sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("EVERYTHING. AT ONCE.", 257, 56);
+  }
+  const WALL_SCENES = {
+    emails: drawEmailsScene, meetings: drawMeetingsScene, spreadsheets: drawSpreadsheetsScene,
+    deadlines: drawDeadlinesScene, monday: drawMondayScene, everything: drawEverythingScene,
+  };
   function makeWallTexture(theme, material, crashCount){
     const mat = material || getMaterialPack("concrete");
     const c = document.createElement("canvas"); c.width = 512; c.height = 256;
@@ -1244,14 +1523,8 @@
     ctx.fillStyle = "#f4c430";
     ctx.fillRect(0,0,512,16); ctx.fillRect(0,240,512,16);
     for(let i=0;i<16;i++){ ctx.fillStyle = (i%2===0) ? "#1c1f22" : "#f4c430"; ctx.fillRect(i*32,0,32,16); ctx.fillRect(i*32,240,32,16); }
-    if(theme && theme.id !== "default"){
-      ctx.fillStyle = "rgba(20,20,24,0.6)";
-      ctx.fillRect(150,88,212,86);
-      ctx.fillStyle = "#f3f0e8"; ctx.textAlign = "center";
-      ctx.font = "44px sans-serif";
-      ctx.fillText(theme.emoji, 256, 138);
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillText(theme.label.toUpperCase(), 256, 162);
+    if(theme && theme.id !== "default" && WALL_SCENES[theme.id]){
+      WALL_SCENES[theme.id](ctx);
     } else {
       ctx.strokeStyle = mat.wallAccent; ctx.lineWidth = 5;
       ctx.beginPath(); ctx.moveTo(236,108); ctx.lineTo(276,148); ctx.moveTo(276,108); ctx.lineTo(236,148); ctx.stroke();
@@ -1493,6 +1766,29 @@
     group.userData.windshield = null;
     return group;
   }
+  // A rounded, beveled box instead of a hard-edged one -- this is what actually reads
+  // as "molded car body" instead of "cardboard box": rounded corners in cross-section
+  // plus a bevel along the length so no edge is a sharp 90 degrees.
+  function makeRoundedBoxGeometry(width, height, depth, radius){
+    const w = width/2, h = height/2;
+    const r = Math.min(radius, w*0.9, h*0.9);
+    const shape = new THREE.Shape();
+    shape.moveTo(-w+r, -h);
+    shape.lineTo(w-r, -h);
+    shape.quadraticCurveTo(w, -h, w, -h+r);
+    shape.lineTo(w, h-r);
+    shape.quadraticCurveTo(w, h, w-r, h);
+    shape.lineTo(-w+r, h);
+    shape.quadraticCurveTo(-w, h, -w, h-r);
+    shape.lineTo(-w, -h+r);
+    shape.quadraticCurveTo(-w, -h, -w+r, -h);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: depth, bevelEnabled: true, bevelThickness: Math.min(0.05, r*0.5),
+      bevelSize: Math.min(0.05, r*0.5), bevelSegments: 3, curveSegments: 6,
+    });
+    geo.translate(0, 0, -depth/2); // center on Z like BoxGeometry does, so position.set() behaves the same
+    return geo;
+  }
   function buildCarMesh(car){
     const group = new THREE.Group();
     if(car.id === "printer") return buildPrinterMesh(car, group);
@@ -1504,11 +1800,22 @@
     const lightMat = new THREE.MeshStandardMaterial({color:0xfff6d0, emissive:0xffe98a, emissiveIntensity:1.3});
     const tailMat = new THREE.MeshStandardMaterial({color:0xff3b3b, emissive:0xaa1010, emissiveIntensity:1.0});
 
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, 4.0), bodyMat);
-    chassis.position.set(0, 0.55, 0); chassis.castShadow = true; chassis.receiveShadow = true;
-    group.add(chassis);
+    // Body built as three tapered, rounded segments instead of one flat slab --
+    // narrower and lower at both the nose and tail, full width through the cabin
+    // floor, giving an actual silhouette instead of a brick. Front bumper stays at
+    // the same z=2.0 it always has, so CAR_FRONT_OVERHANG (impact point math) is untouched.
+    const rearSeg = new THREE.Mesh(makeRoundedBoxGeometry(1.8, 0.48, 1.2, 0.16), bodyMat);
+    rearSeg.position.set(0, 0.53, -1.4); rearSeg.castShadow = true; rearSeg.receiveShadow = true;
+    group.add(rearSeg);
+    const midSeg = new THREE.Mesh(makeRoundedBoxGeometry(2.0, 0.55, 1.6, 0.15), bodyMat);
+    midSeg.position.set(0, 0.55, 0.0); midSeg.castShadow = true; midSeg.receiveShadow = true;
+    group.add(midSeg);
+    const hoodSeg = new THREE.Mesh(makeRoundedBoxGeometry(1.7, 0.4, 1.2, 0.14), bodyMat);
+    hoodSeg.position.set(0, 0.48, 1.4); hoodSeg.rotation.x = 0.05;
+    hoodSeg.castShadow = true; hoodSeg.receiveShadow = true;
+    group.add(hoodSeg);
 
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 1.9), bodyMat);
+    const cabin = new THREE.Mesh(makeRoundedBoxGeometry(1.42, 0.46, 1.85, 0.16), bodyMat);
     cabin.position.set(0, 1.05, -0.25); cabin.castShadow = true;
     group.add(cabin);
 
@@ -1520,10 +1827,10 @@
     rearWindow.position.set(0, 0.98, -1.18); rearWindow.rotation.x = 0.4;
     group.add(rearWindow);
 
-    const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.28, 0.22), chromeMat);
+    const frontBumper = new THREE.Mesh(makeRoundedBoxGeometry(2.05, 0.28, 0.22, 0.08), chromeMat);
     frontBumper.position.set(0, 0.34, 2.0);
     group.add(frontBumper);
-    const rearBumper = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.28, 0.22), darkMat);
+    const rearBumper = new THREE.Mesh(makeRoundedBoxGeometry(2.05, 0.28, 0.22, 0.08), darkMat);
     rearBumper.position.set(0, 0.34, -2.0);
     group.add(rearBumper);
 
@@ -1610,7 +1917,9 @@
   // ---------- physics/game state ----------
   let speed = 0, distanceRemaining = 100, running = false, crashed = false, uiBlocked = false;
   let lastCrash = null;
+  let rpm = 900;
   const DISTANCE_FACTOR = 0.1, DECAY_PER_SEC = 18, TAP_BOOST = 5;
+  const WALL_BREAK_SPEED = 400;
 
   function fmt(n){
     if(n < 1000) return "$" + Math.floor(n).toLocaleString();
@@ -1630,6 +1939,12 @@
     document.getElementById("speedVal").textContent = Math.round(speed);
     const car = getCar(state.activeCarId);
     document.getElementById("speedFill").style.width = Math.min(100, (speed/car.maxSpeed)*100) + "%";
+    const speedDeg = -130 + Math.min(1, speed/400) * 260;
+    const rpmDeg = -130 + Math.min(1, rpm/8000) * 260;
+    const speedNeedle = document.getElementById("speedNeedle");
+    const rpmNeedle = document.getElementById("rpmNeedle");
+    if(speedNeedle) speedNeedle.style.transform = "rotate(" + speedDeg + "deg)";
+    if(rpmNeedle) rpmNeedle.style.transform = "rotate(" + rpmDeg + "deg)";
   }
   function renderStats(){
     const dailyBest = state.dailyBestSpeed.date === todayStr() ? state.dailyBestSpeed.speed : 0;
@@ -1815,6 +2130,37 @@
       scene.remove(group);
       frameEdges.dispose(); engineEdges.dispose(); mat.dispose();
     }, 1300);
+  }
+  // 400+ km/h fully destroys the wall: it vanishes in a big chunk burst and stays gone
+  // for a beat before quietly resetting, ready for the next run.
+  let wallBreakChunks = [];
+  function triggerWallBreak(impactSpeed){
+    if(impactSpeed < WALL_BREAK_SPEED || !wallMesh || !scene) return;
+    state.wallBreaks = (state.wallBreaks||0) + 1;
+    wallMesh.visible = false;
+    const chunkMat = new THREE.MeshStandardMaterial({color:0x8b9199, roughness:0.9});
+    for(let i=0;i<18;i++){
+      const chunk = new THREE.Mesh(new THREE.BoxGeometry(0.3+Math.random()*0.5, 0.3+Math.random()*0.5, 0.2+Math.random()*0.3), chunkMat);
+      chunk.position.set((Math.random()-0.5)*9, 1+Math.random()*4, WALL_FAR_Z + (Math.random()-0.5)*1.5);
+      chunk.userData.vel = new THREE.Vector3((Math.random()-0.5)*4, 2+Math.random()*4, 2+Math.random()*3);
+      chunk.userData.life = 1.8;
+      scene.add(chunk);
+      wallBreakChunks.push(chunk);
+    }
+    spawnDebris(1.4, WALL_FAR_Z + 1, 2.5);
+    showToast("🧨 WALL DESTROYED!", Math.round(impactSpeed) + " km/h — nothing left standing");
+    setTimeout(() => { if(wallMesh) wallMesh.visible = true; }, 2200);
+  }
+  function updateWallBreakChunks(dt){
+    if(!wallBreakChunks.length) return;
+    for(let i=wallBreakChunks.length-1;i>=0;i--){
+      const c = wallBreakChunks[i];
+      c.userData.life -= dt;
+      if(c.userData.life <= 0){ scene.remove(c); wallBreakChunks.splice(i,1); continue; }
+      c.userData.vel.y -= 9.8*dt;
+      c.position.addScaledVector(c.userData.vel, dt);
+      c.rotation.x += dt*4; c.rotation.y += dt*3;
+    }
   }
 
   function startSession(modeId){
@@ -2118,6 +2464,7 @@
       }
     });
     safely("xray-effect", spawnXraySkeleton);
+    safely("wall-break", () => triggerWallBreak(impactSpeed));
     safely("milestones", checkMilestones);
     safely("achievements", checkAchievements);
     safely("secret-cars", checkSecretCarUnlocks);
@@ -2140,6 +2487,14 @@
       document.getElementById("rcMoney").textContent = "+" + fmt(reward);
       document.getElementById("rcScore").textContent = "Impact Score " + impactScore.toLocaleString() + (isRecord ? "  🏆 NEW RECORD" : "");
       document.getElementById("rcPower").textContent = "Impact Power " + impactPower.toLocaleString() + " kN" + (isFridayToday() ? "  🎉 Friday Bonus" : "");
+      const wallStatusEl = document.getElementById("rcWallStatus");
+      if(impactSpeed >= WALL_BREAK_SPEED){
+        wallStatusEl.textContent = "🧨 WALL COMPLETELY DESTROYED!";
+        wallStatusEl.className = "rc-wall-status broken";
+      } else {
+        wallStatusEl.textContent = "Hit " + WALL_BREAK_SPEED + "+ km/h to break through the wall completely";
+        wallStatusEl.className = "rc-wall-status hint";
+      }
       renderDamageZones(damagePercent);
       const rageTheme = getRageTheme(state.rageTheme);
       const captionEl = document.getElementById("rcCaption");
@@ -2213,6 +2568,7 @@
   function onTap(){
     if(crashed || uiBlocked || inReplay) return;
     if(speed <= 0.5){ speed = 50; } else { speed += 20; }
+    rpm = Math.min(8200, rpm + 2200 + Math.random()*600);
     playTapBlip();
     vibrate(6);
     startAmbient();
@@ -2221,6 +2577,8 @@
   function updatePhysics(dt){
     if(crashed || inReplay) return;
     speed = Math.max(0, speed - DECAY_PER_SEC*dt);
+    const rpmFloor = 900 + speed*14;
+    rpm = rpm > rpmFloor ? Math.max(rpmFloor, rpm - 3400*dt) : Math.min(rpmFloor, rpm + 1800*dt);
     const car = getCar(state.activeCarId);
     if(speed > 0.5){
       if(!running){ running = true; document.getElementById("tapHint").style.opacity = "0"; startEngineAudio(); }
@@ -2765,6 +3123,7 @@
     lastTime = now;
     updatePhysics(dt);
     updateParticles(dt);
+    updateWallBreakChunks(dt);
     updateFlyingParts(dt);
     updateCameraShake(dt);
     updateEngineAudio();
@@ -2772,6 +3131,50 @@
     if(roadTex) roadTex.offset.y -= (speed/3.6) * dt * 0.12;
     renderer.render(scene, camera);
   }
+
+  const CLOSEABLE_MODALS = [
+    ["aboutModal","aboutCloseBtn"], ["crashGalleryModal","crashGalleryCloseBtn"],
+    ["crashLabModal","crashLabCloseBtn"], ["crashSettingsModal","settingsCloseX"],
+    ["dailyChallengeModal","dailyChallengeCloseBtn"], ["garageModal","garageCloseBtn"],
+    ["hallOfFameModal","hofCloseBtn"], ["materialModal","materialCloseBtn"],
+    ["officeRageModal","officeRageCloseBtn"], ["premiumModal","premiumCloseBtn"],
+    ["sessionModal","sessionCloseBtn"],
+  ];
+  const EXIT_LINES = [
+    "Leaving so soon? The wall was just getting used to you.",
+    "One more crash never hurt anyone. Well, except the wall.",
+    "Are you sure? There's a car with your name on it.",
+    "Quitting mid-rage is how the wall wins.",
+  ];
+  function handleBackPress(){
+    for(let i=0;i<CLOSEABLE_MODALS.length;i++){
+      const modalEl = document.getElementById(CLOSEABLE_MODALS[i][0]);
+      if(modalEl && modalEl.style.display === "flex"){
+        document.getElementById(CLOSEABLE_MODALS[i][1]).click();
+        return;
+      }
+    }
+    if(document.getElementById("exitConfirmModal").style.display === "flex") return;
+    document.getElementById("exitConfirmLine").textContent = EXIT_LINES[Math.floor(Math.random()*EXIT_LINES.length)];
+    document.getElementById("exitConfirmModal").style.display = "flex";
+    uiBlocked = true;
+  }
+  document.getElementById("exitConfirmNoBtn").addEventListener("click", () => {
+    document.getElementById("exitConfirmModal").style.display = "none";
+    uiBlocked = false;
+  });
+  document.getElementById("exitConfirmYesBtn").addEventListener("click", () => {
+    try{
+      if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+        window.Capacitor.Plugins.App.exitApp();
+      }
+    }catch(e){ logError("exitApp failed: " + (e && e.message ? e.message : e)); }
+  });
+  try{
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+      window.Capacitor.Plugins.App.addListener("backButton", handleBackPress);
+    }
+  }catch(e){ logError("back button listener failed: " + (e && e.message ? e.message : e)); }
 
   (async function boot(){
     await load();
